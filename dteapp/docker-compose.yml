@@ -1,0 +1,63 @@
+# ============================================================
+# Docker Compose — DTE Recruitment Portal (Production)
+# ============================================================
+#
+# Usage:
+#   docker compose up -d --build
+#
+# The VITE_API_URL must point to your live backend.
+# You can override any variable with a .env.production file.
+# ============================================================
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Build-time args — baked into the JS bundle by Vite
+      args:
+        VITE_APP_NAME: "${VITE_APP_NAME:-DTE Recruitment Portal}"
+        VITE_API_URL: "${VITE_API_URL}"
+        VITE_MOCK_API: "${VITE_MOCK_API:-false}"
+    image: dte-app:production
+    container_name: dte-frontend
+    restart: unless-stopped
+
+    # Map host port → container port 80 (Nginx)
+    ports:
+      - "${HOST_PORT:-3000}:80"
+
+    environment:
+      # Runtime env vars (Nginx can read these if needed via entrypoint scripts)
+      - TZ=Asia/Kolkata
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits — adjust based on your server capacity
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    networks:
+      - dte_network
+
+# ── Networks ───────────────────────────────────────────────
+networks:
+  dte_network:
+    driver: bridge

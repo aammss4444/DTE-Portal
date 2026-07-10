@@ -1,0 +1,24 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+alembic.ini
+
+# Logs and DB
+*.log
+*.sqlite
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local folders
+scratch/
+uploads/
