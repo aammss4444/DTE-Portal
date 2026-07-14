@@ -183,7 +183,7 @@ class VacancyService:
         non_effective = total - effective
 
         # Fetch items
-        items_stmt = select(ExistingFaculty).where(base_filter).order_by(ExistingFaculty.created_at.desc())
+        items_stmt = select(ExistingFaculty).where(base_filter).options(selectinload(ExistingFaculty.qualifications_list)).order_by(ExistingFaculty.created_at.desc())
         if limit is not None:
             items_stmt = items_stmt.offset(skip).limit(limit)
             
