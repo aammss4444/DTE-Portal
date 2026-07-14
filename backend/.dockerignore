@@ -1,0 +1,57 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments (never copy the local venv into the image)
+venv/
+.venv/
+ENV/
+env/
+
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+test_*.py
+
+# Local uploads (mounted as a volume in production)
+uploads/
+
+# Environment / secrets (injected at runtime via docker-compose or secrets)
+.env
+.env.*
+
+# Development & IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docs & scripts (not needed at runtime)
+Docs/
+scripts/
+seeds/
+scratch/
+local_llm/
+
+# Alembic migration history (only needed if you run migrations inside the container)
+# Comment this out if you run `alembic upgrade head` in your CMD/entrypoint
+# alembic/
+
+# Log files
+*.log
+
+# macOS
+.DS_Store
+
+# Postman collections
+*.postman_collection.json

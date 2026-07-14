@@ -76,6 +76,7 @@ async def lifespan(app: FastAPI):
             {"email": "treasurer@chb.com", "role": RoleEnum.TREASURY, "name": "Treasurer"},
         ]
         default_password = get_password_hash("Admin@123")
+        seeded = []
         for user_data in seed_users:
             exists = (await db.execute(select(User).where(User.email == user_data["email"]))).scalars().first()
             if not exists:
@@ -88,7 +89,14 @@ async def lifespan(app: FastAPI):
                     force_password_change=True,
                 )
                 db.add(new_user)
+                seeded.append(user_data["email"])
+            else:
+                print(f"[SEED] User already exists: {user_data['email']}")
         await db.commit()
+        if seeded:
+            print(f"[SEED] Created users: {', '.join(seeded)}")
+        else:
+            print("[SEED] All seed users already exist — skipping.")
         
     yield
 
