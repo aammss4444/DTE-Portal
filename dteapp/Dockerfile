@@ -37,32 +37,25 @@ RUN pnpm run build
 
 # ============================================================
 # Stage 2: Production Server
-# Minimal Nginx Alpine image — no Node, no build tools, no source
+# Lightweight Node Alpine — serves /dist with the `serve` package
 # ============================================================
-FROM nginx:1.27-alpine AS production
+FROM node:22-alpine AS production
 
-# Remove the default Nginx welcome page
-RUN rm -rf /usr/share/nginx/html/*
+# Install `serve` globally — a zero-config static file server
+RUN npm install -g serve
 
-# Copy the compiled frontend from the builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Create a non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy our custom Nginx configuration (handles SPA routing + security headers)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Nginx runs as root by default. Drop to non-root for security.
-# Give the nginx user ownership of the required runtime directories.
-RUN chown -R nginx:nginx /usr/share/nginx/html \
-    && chown -R nginx:nginx /var/cache/nginx \
-    && chown -R nginx:nginx /var/log/nginx \
-    && touch /var/run/nginx.pid \
-    && chown nginx:nginx /var/run/nginx.pid
+# Copy only the compiled dist from the builder stage
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 
-USER nginx
+USER appuser
 
-# Expose port 80 (Nginx default)
+# Expose port 3000
 EXPOSE 3000
 
-
-# Start Nginx in the foreground (required for Docker)
-CMD ["nginx", "-g", "daemon off;"]
+# Start serve in SPA mode on port 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]

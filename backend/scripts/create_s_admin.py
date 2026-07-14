@@ -10,7 +10,7 @@ from app.core.security import get_password_hash
 
 async def create_admin():
     async with AsyncSessionLocal() as db:
-        hashed_password = get_password_hash("1234")
+        hashed_password = get_password_hash("123456")
         admin = User(
             email="s.admin@gmail.com",
             hashed_password=hashed_password,

@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
             {"email": "ro@example.com", "role": RoleEnum.RO, "name": "Regional Officer"},
             {"email": "treasury@example.com", "role": RoleEnum.TREASURY, "name": "Treasurer"},
         ]
-        default_password = get_password_hash("Admin@123")
+        default_password = get_password_hash("123456")
         seeded = []
         for user_data in seed_users:
             exists = (await db.execute(select(User).where(User.email == user_data["email"]))).scalars().first()

@@ -78,8 +78,8 @@ async def amain():
     ad_id, app_id, course_id, level = await get_test_data()
     
     with httpx.Client(timeout=40.0) as client:
-        admin_token = login(client, "s.admin@gmail.com", "1234")
-        principal_token = login(client, "principal@gmail.com", "1234")
+        admin_token = login(client, "s.admin@gmail.com", "123456")
+        principal_token = login(client, "principal@gmail.com", "123456")
         
         admin_headers = {"Authorization": f"Bearer {admin_token}"}
         principal_headers = {"Authorization": f"Bearer {principal_token}"}
