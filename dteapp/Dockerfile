@@ -58,4 +58,4 @@ USER appuser
 EXPOSE 3000
 
 # Start serve in SPA mode on port 3000
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["serve", "-s", "dist", "-l", "tcp://0.0.0.0:3000"]
