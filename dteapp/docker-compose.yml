@@ -23,16 +23,16 @@ services:
     container_name: dte-frontend
     restart: unless-stopped
 
-    # Map host port → container port 80 (Nginx)
+    # Map host port → container port 3000 (Nginx — see nginx.conf listen 3000)
     ports:
-      - "${HOST_PORT:-3000}:80"
+      - "${HOST_PORT:-3000}:3000"
 
     environment:
       # Runtime env vars (Nginx can read these if needed via entrypoint scripts)
       - TZ=Asia/Kolkata
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
       interval: 30s
       timeout: 5s
       retries: 3

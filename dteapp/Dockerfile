@@ -27,7 +27,8 @@ ARG VITE_MOCK_API=false
 
 # Set them as real env vars so Vite picks them up during build
 ENV VITE_APP_NAME="DTE Recruitment Portal"
-ENV VITE_API_URL=https://dteapi.vosl.in/api/
+# ENV VITE_API_URL=https://dteapi.vosl.in/api/
+ENV VITE_API_URL=http://localhost:8000/api/
 ENV VITE_MOCK_API=false
 
 # Build the production-optimised static assets

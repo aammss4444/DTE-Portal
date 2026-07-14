@@ -31,9 +31,9 @@ const LoginPage = () => {
   };
 
   const testAccounts = [
-    { name: 'Admin', user: 's.admin@gmail.com', pass: 'password123' },
-    { name: 'RO', user: 'ro@example.com', pass: 'password123' },
-    { name: 'Treasury', user: 'treasury@example.com', pass: 'password123' },
+    { name: 'Admin', user: 's.admin@gmail.com', pass: '123456' },
+    { name: 'RO', user: 'ro@example.com', pass: '123456' },
+    { name: 'Treasury', user: 'treasury@example.com', pass: '123456' },
   ];
 
   const handleTestLogin = (u, p) => {
