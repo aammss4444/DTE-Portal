@@ -53,20 +53,30 @@ def check_individual_faculty(
         if min_qual and faculty.qualification:
             import re
             fac_qual_clean = re.sub(r'[^a-z0-9]', '', faculty.qualification.lower())
-            min_qual_clean = re.sub(r'[^a-z0-9]', '', min_qual.lower())
             
-            print(f"DEBUG: fac_qual_clean='{fac_qual_clean}', min_qual_clean='{min_qual_clean}'")
-            print(f"DEBUG: fac in min: {fac_qual_clean in min_qual_clean}, min in fac: {min_qual_clean in fac_qual_clean}")
+            # min_qual might be "m.e./m.tech", meaning M.E. OR M.Tech
+            # Split by common separators
+            min_qual_parts = re.split(r'[/,]', min_qual.lower())
+            min_qual_clean_parts = [re.sub(r'[^a-z0-9]', '', p) for p in min_qual_parts if p.strip()]
             
-            if fac_qual_clean not in min_qual_clean and min_qual_clean not in fac_qual_clean:
-                print("DEBUG: Entered anomaly block!")
+            # If any of the min_qual parts is in the faculty qualification, or vice versa, it's a match
+            matched = False
+            for mq_clean in min_qual_clean_parts:
+                if mq_clean in fac_qual_clean or fac_qual_clean in mq_clean:
+                    matched = True
+                    break
+            
+            if not matched:
                 found = False
                 if hasattr(faculty, "qualifications_list") and faculty.qualifications_list:
                     for q in faculty.qualifications_list:
                         if not q.degree: continue
                         q_deg_clean = re.sub(r'[^a-z0-9]', '', q.degree.lower())
-                        if q_deg_clean in min_qual_clean or min_qual_clean in q_deg_clean:
-                            found = True
+                        for mq_clean in min_qual_clean_parts:
+                            if mq_clean in q_deg_clean or q_deg_clean in mq_clean:
+                                found = True
+                                break
+                        if found:
                             break
                 
                 if not found:

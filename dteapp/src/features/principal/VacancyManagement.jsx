@@ -228,7 +228,14 @@ const VacancyManagement = () => {
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                 <h3 className="text-lg font-bold text-slate-900">Deterministic Gap Analysis</h3>
-                <span className="text-[10px] font-bold bg-indigo-600 text-white px-3 py-1 rounded-full uppercase tracking-widest">Live Audit</span>
+                <button 
+                  onClick={handleAIAnalysis}
+                  disabled={suggesting || assessment.status === 'CONFIRMED'}
+                  className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-full uppercase tracking-widest transition-colors flex items-center shadow-sm cursor-pointer"
+                >
+                  {suggesting ? 'Running...' : 'Run Live Audit'}
+                  <Sparkles size={12} className="ml-1.5" />
+                </button>
               </div>
 
               <div className="p-8">
@@ -281,20 +288,87 @@ const VacancyManagement = () => {
               </div>
             </div>
 
-            {/* Anomalies Section */}
-            {assessment.anomalies && assessment.anomalies.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-amber-50/30">
+            {/* AI Analysis Section */}
+            {(assessment.ai_analysis || suggesting) && (
+              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm relative">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/30">
                   <h3 className="text-lg font-bold text-slate-900 flex items-center">
-                    <AlertTriangle className="text-amber-500 mr-2" size={20} />
-                    Data Anomalies Detected
+                    <Sparkles className="text-indigo-600 mr-2" size={20} />
+                    AI Insights & Audit
                   </h3>
+                  {suggesting && (
+                    <span className="flex items-center text-[10px] font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">
+                      Processing...
+                    </span>
+                  )}
+                </div>
+                <div className="p-8 space-y-6">
+                  {suggesting ? (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                      <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                      <div className="text-center">
+                        <h4 className="text-sm font-bold text-indigo-900">AI is analyzing faculty and admission data...</h4>
+                        <p className="text-xs font-medium text-slate-500 mt-1">Generating intelligent gap analysis and vacancy recommendations</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {assessment.ai_analysis.justification && (
+                    <div className="p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 text-indigo-900 text-sm leading-relaxed">
+                      <span className="font-bold block mb-1 uppercase text-[10px] tracking-widest opacity-70">Justification</span>
+                      {assessment.ai_analysis.justification}
+                    </div>
+                  )}
+                  {assessment.ai_analysis.insights && assessment.ai_analysis.insights.length > 0 && (
+                    <div className="space-y-3">
+                      <span className="font-bold block uppercase text-[10px] tracking-widest text-slate-400">Key Observations</span>
+                      <ul className="space-y-2">
+                        {assessment.ai_analysis.insights.map((insight, idx) => (
+                          <li key={idx} className="flex items-start text-sm text-slate-600">
+                            <span className="text-indigo-400 mr-2 mt-0.5">•</span>
+                            {insight}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {!assessment.ai_analysis?.justification && (!assessment.ai_analysis?.insights || assessment.ai_analysis?.insights.length === 0) && (
+                    <div className="text-center p-6 text-slate-500 font-medium text-sm">
+                      AI Analysis completed, but no specific insights were generated.
+                    </div>
+                  )}
+                  </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Anomalies Section */}
+            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+              <div className={cn("p-8 border-b border-slate-100 flex items-center justify-between", assessment.anomalies?.length > 0 ? "bg-amber-50/30" : "bg-emerald-50/30")}>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center">
+                  {assessment.anomalies?.length > 0 ? (
+                    <AlertTriangle className="text-amber-500 mr-2" size={20} />
+                  ) : (
+                    <CheckCircle2 className="text-emerald-500 mr-2" size={20} />
+                  )}
+                  Data Anomalies Detected
+                </h3>
+                {assessment.anomalies?.length > 0 && (
                   <span className="text-[10px] font-bold bg-amber-500 text-white px-3 py-1 rounded-full uppercase tracking-widest">
                     {assessment.anomalies.filter(a => !a.is_acknowledged).length} Pending
                   </span>
-                </div>
-                <div className="p-8 space-y-4">
-                  {assessment.anomalies.map((anomaly) => (
+                )}
+              </div>
+              <div className="p-8 space-y-4">
+                {(!assessment.anomalies || assessment.anomalies.length === 0) ? (
+                  <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex flex-col items-center justify-center text-center">
+                    <CheckCircle2 size={32} className="text-emerald-400 mb-2" />
+                    <h4 className="text-sm font-bold text-emerald-900">All Clear</h4>
+                    <p className="text-xs text-emerald-700/80 mt-1">No compliance or data anomalies were detected during the gap analysis.</p>
+                  </div>
+                ) : (
+                  assessment.anomalies.map((anomaly) => (
                     <div key={anomaly.id} className={cn(
                       "p-5 rounded-2xl border flex items-start justify-between gap-4 transition-all",
                       anomaly.is_acknowledged ? "bg-slate-50 border-slate-100 opacity-60" : "bg-amber-50/50 border-amber-100"
@@ -329,10 +403,10 @@ const VacancyManagement = () => {
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  ))
+                )}
               </div>
-            )}
+            </div>
 
 
           </div>

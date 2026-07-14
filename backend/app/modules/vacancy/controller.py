@@ -145,25 +145,7 @@ class VacancyController:
             # For simplicity, we just save the notes for now
             await db.commit()
 
-        return {
-            "status": "success",
-            "data": {
-                "id": str(assessment.id),
-                "institution_id": assessment.institution_id,
-                "course_id": assessment.course_id,
-                "academic_year": assessment.academic_year,
-                "required_count": assessment.required_count,
-                "total_existing": assessment.total_existing,
-                "effective_existing": assessment.effective_existing,
-                "suggested_vacancy": assessment.suggested_vacancy,
-                "status": assessment.status,
-                "ai_suggestion_notes": assessment.ai_suggestion_notes,
-                "anomaly_count": len(assessment.anomalies),
-                "unacknowledged_high_count": len([a for a in assessment.anomalies if a.severity == "HIGH" and not a.is_acknowledged]),
-                "anomalies": assessment.anomalies,
-                "ai_analysis": ai_res
-            }
-        }
+        return await self.get_assessment(db, current_user, req.institution_id, req.course_id, req.academic_year)
 
     async def get_assessment(self, db: AsyncSession, current_user: User, institution_id: int, course_id: int, academic_year: str):
         from sqlalchemy import select
@@ -237,8 +219,8 @@ class VacancyController:
         }
 
     async def confirm_vacancy(self, db: AsyncSession, current_user: User, institution_id: int, course_id: int, academic_year: str, req: VacancyConfirmRequest):
-        assessment = await self.service.confirm_vacancy(db, current_user.id, institution_id, course_id, academic_year, req)
-        return {"status": "success", "data": assessment}
+        await self.service.confirm_vacancy(db, current_user.id, institution_id, course_id, academic_year, req)
+        return await self.get_assessment(db, current_user, institution_id, course_id, academic_year)
 
     async def acknowledge_anomaly(self, db: AsyncSession, current_user: User, anomaly_id: UUID, req: AnomalyAcknowledgeRequest):
         anomaly = await self.service.acknowledge_anomaly(db, current_user.id, anomaly_id, req.remarks)
