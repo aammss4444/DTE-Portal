@@ -16,7 +16,8 @@ import {
   Sparkles,
   X,
   ExternalLink,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import { Button, Input } from '../../components/common/UIComponents';
 import { applicationService } from '../../services/applicationService';
@@ -74,6 +75,18 @@ const ApplicationManagement = () => {
     } catch (error) {
       console.error('Failed to fetch AI summary');
     } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleReanalyzeAI = async (appId) => {
+    setAiLoading(true);
+    try {
+      await applicationService.analyzeApplicationAI(appId);
+      // Wait for 1 second to allow backend to finish parsing the LLM response if needed, although it's synchronous
+      await fetchAISummary(appId);
+    } catch (error) {
+      console.error('Failed to re-run AI scrutiny');
       setAiLoading(false);
     }
   };
@@ -290,9 +303,9 @@ const ApplicationManagement = () => {
 
       {/* App Detail Drawer / Modal */}
       {selectedApp && (
-        <div className="fixed inset-0 z-[60] flex justify-end animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedApp(null)}></div>
-          <div className="relative w-full max-w-2xl bg-background shadow-2xl h-full overflow-hidden flex flex-col animate-in slide-in-from-right duration-500">
+          <div className="relative w-full max-w-4xl bg-background shadow-2xl rounded-3xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Drawer Header */}
             <div className="p-6 border-b border-border flex items-center justify-between bg-muted/20">
               <div className="flex items-center space-x-4">
@@ -351,12 +364,22 @@ const ApplicationManagement = () => {
                     <Sparkles size={16} className="mr-2" /> AI Scrutiny Analysis
                   </h4>
                   {aiSummary && (
-                    <div className={cn(
-                      "px-3 py-1 rounded-full text-xs font-bold",
-                      aiSummary.confidence_score >= 80 ? "bg-emerald-100 text-emerald-600" :
-                      aiSummary.confidence_score >= 50 ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-600"
-                    )}>
-                      {aiSummary.confidence_score}% Confidence
+                    <div className="flex items-center space-x-2">
+                      <div className={cn(
+                        "px-3 py-1 rounded-full text-xs font-bold",
+                        aiSummary.confidence_score >= 80 ? "bg-emerald-100 text-emerald-600" :
+                        aiSummary.confidence_score >= 50 ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-600"
+                      )}>
+                        {aiSummary.confidence_score}% Confidence
+                      </div>
+                      <button 
+                        onClick={() => handleReanalyzeAI(selectedApp.application_id)}
+                        disabled={aiLoading}
+                        className="p-1.5 hover:bg-accent/10 rounded-full text-accent transition-colors disabled:opacity-50"
+                        title="Re-run AI Analysis"
+                      >
+                        <RefreshCw size={14} className={cn(aiLoading && "animate-spin")} />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -371,12 +394,24 @@ const ApplicationManagement = () => {
                     <p className="text-xs text-secondary leading-relaxed">
                       {aiSummary.scrutiny_summary || "AI analysis complete. Check the issues list below for specific findings."}
                     </p>
-                    {aiSummary.issues && aiSummary.issues.length > 0 && (
-                      <div className="space-y-2">
-                        {aiSummary.issues.map((issue, idx) => (
-                          <div key={idx} className="flex items-start space-x-2 text-[10px] text-red-500 font-medium bg-red-50 p-2 rounded-lg border border-red-100">
+                    {aiSummary.mismatches && aiSummary.mismatches.length > 0 && (
+                      <div className="space-y-2 mt-4">
+                        <h5 className="text-[11px] font-bold text-foreground uppercase tracking-wider">Profile Anomalies</h5>
+                        {aiSummary.mismatches.map((issue, idx) => (
+                          <div key={`mismatch-${idx}`} className="flex items-start space-x-2 text-[10px] text-red-500 font-medium bg-red-50 p-2 rounded-lg border border-red-100">
                             <AlertCircle size={12} className="mt-0.5 shrink-0" />
                             <span>{issue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {aiSummary.missing_documents && aiSummary.missing_documents.length > 0 && (
+                      <div className="space-y-2 mt-4">
+                        <h5 className="text-[11px] font-bold text-foreground uppercase tracking-wider">Missing Documents</h5>
+                        {aiSummary.missing_documents.map((docName, idx) => (
+                          <div key={`missing-${idx}`} className="flex items-start space-x-2 text-[10px] text-amber-600 font-medium bg-amber-50 p-2 rounded-lg border border-amber-100">
+                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                            <span>Missing required document: {docName}</span>
                           </div>
                         ))}
                       </div>
@@ -408,46 +443,64 @@ const ApplicationManagement = () => {
                       No documents found for this application.
                     </div>
                   ) : (
-                    documents.map((doc) => (
-                      <div key={doc.id} className="group p-4 bg-background border border-border rounded-2xl hover:border-accent transition-all flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                            doc.validation_status === 'VALID' ? "bg-emerald-100 text-emerald-600" : 
-                            doc.validation_status === 'INVALID' ? "bg-red-100 text-red-600" : "bg-muted text-secondary"
-                          )}>
-                            <FileText size={20} />
-                          </div>
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-bold text-foreground uppercase tracking-tight">{doc.document_type}</span>
-                              {getValidationIcon(doc.validation_status)}
+                    documents.map((doc) => {
+                      const docAnalysis = aiSummary?.document_analysis?.find(da => da.document_type === doc.document_type);
+                      const docIssues = docAnalysis?.issues || [];
+                      return (
+                      <div key={doc.id} className="group flex flex-col bg-background border border-border rounded-2xl hover:border-accent transition-all overflow-hidden">
+                        <div className="p-4 flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                              doc.validation_status === 'VALID' ? "bg-emerald-100 text-emerald-600" : 
+                              doc.validation_status === 'INVALID' ? "bg-red-100 text-red-600" : "bg-muted text-secondary"
+                            )}>
+                              <FileText size={20} />
                             </div>
-                            <p className="text-[10px] text-secondary mt-0.5">{doc.file_name} • {(doc.file_size_kb || 0).toFixed(1)} KB</p>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-bold text-foreground uppercase tracking-tight">{doc.document_type}</span>
+                                {getValidationIcon(doc.validation_status)}
+                              </div>
+                              <p className="text-[10px] text-secondary mt-0.5">{doc.file_name} • {(doc.file_size_kb || 0).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="p-2 h-9 w-9 rounded-full"
+                              onClick={() => {
+                                const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8080';
+                                window.open(`${baseUrl}/${doc.file_path}`, '_blank');
+                              }}
+                            >
+                              <ExternalLink size={16} />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="p-2 h-9 w-9 rounded-full"
+                            >
+                              <Download size={16} />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="p-2 h-9 w-9 rounded-full"
-                            onClick={() => {
-                              const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:8080';
-                              window.open(`${baseUrl}/${doc.file_path}`, '_blank');
-                            }}
-                          >
-                            <ExternalLink size={16} />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="p-2 h-9 w-9 rounded-full"
-                          >
-                            <Download size={16} />
-                          </Button>
-                        </div>
+                        {docIssues.length > 0 && (
+                          <div className="bg-red-50/50 px-4 py-3 border-t border-red-100 space-y-2">
+                            <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Document Anomalies Detected:</p>
+                            <div className="space-y-1.5">
+                              {docIssues.map((issue, idx) => (
+                                <div key={idx} className="flex items-start space-x-2 text-[10px] text-red-500">
+                                  <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                                  <span>{issue}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))
+                    )})
                   )}
                 </div>
               </div>

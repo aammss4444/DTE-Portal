@@ -232,3 +232,76 @@ async def call_llm_count_faces(base64_image: str) -> int | None:
     except Exception as e:
         logger.error(f"Error calling OpenAI for face counting: {str(e)}")
         return None
+
+
+RESUME_PARSE_SYSTEM_PROMPT = """
+You are an AI that extracts structured candidate profile data from resumes.
+STRICT RULES:
+* Extract ONLY information that is explicitly stated in the resume.
+* Do NOT hallucinate or assume any data.
+* Output STRICT JSON only.
+"""
+
+
+async def call_llm_parse_resume(resume_text: str) -> str | None:
+    if client is None:
+        logger.error("OpenAI client unavailable for resume parsing.")
+        return None
+
+    prompt = f"""
+Extract structured candidate details from the following resume text. 
+Only extract fields that are clearly mentioned.
+
+Resume Text:
+{resume_text}
+
+Return STRICT JSON with this exact schema (use null for fields not found):
+{{
+  "full_name": "string or null",
+  "father_name": "string or null",
+  "date_of_birth": "YYYY-MM-DD or null",
+  "gender": "Male/Female/Other or null",
+  "address": "string or null",
+  "district": "string or null",
+  "state": "string or null",
+  "pincode": "string or null",
+  "qualifications": [
+    {{
+      "degree": "e.g. B.Tech, M.Tech, PhD",
+      "specialization": "e.g. Computer Engineering",
+      "university": "e.g. Mumbai University",
+      "year_of_passing": 2020,
+      "percentage": 75.5
+    }}
+  ],
+  "experiences": [
+    {{
+      "institution_name": "e.g. AVS Polytechnic",
+      "designation": "e.g. Lecturer",
+      "from_date": "YYYY-MM-DD or null",
+      "to_date": "YYYY-MM-DD or null (null if current)",
+      "is_current": true,
+      "experience_type": "TEACHING or INDUSTRY"
+    }}
+  ],
+  "skills": ["skill1", "skill2"]
+}}
+"""
+    try:
+        resp = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=settings.OPENAI_MODEL or "gpt-4o-mini",
+                temperature=0.1,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": RESUME_PARSE_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            ),
+            timeout=30,
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        logger.error(f"Error calling OpenAI for resume parsing: {str(e)}")
+        return None
+

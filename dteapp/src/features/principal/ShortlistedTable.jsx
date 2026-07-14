@@ -6,7 +6,8 @@ import {
   Loader2, 
   User,
   GraduationCap,
-  Calendar
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 import { fetchShortlisted } from './selectionSlice';
 import { Button } from '../../components/common/UIComponents';
@@ -42,7 +43,7 @@ const ShortlistedTable = ({ advertisementId, onMarkCandidate, onGenerateRankings
         </div>
         <Button 
           onClick={onGenerateRankings} 
-          className="shadow-sm"
+          className="bg-black text-white border border-slate-800 hover:bg-slate-900 shadow-sm"
         >
           Generate AI Rankings
         </Button>
@@ -90,6 +91,15 @@ const ShortlistedTable = ({ advertisementId, onMarkCandidate, onGenerateRankings
                     <Calendar size={14} className="text-slate-400" />
                     <span>{cand.experience_years} Years Experience</span>
                   </div>
+                  {cand.remarks && (
+                    <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                      <div className="flex items-center gap-1.5 mb-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                        <MessageSquare size={12} className="text-indigo-400" />
+                        Interview Notes
+                      </div>
+                      <p className="text-sm text-slate-700 italic">"{cand.remarks}"</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-50 flex items-center justify-between">

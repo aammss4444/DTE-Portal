@@ -26,6 +26,7 @@ class ApplicationDocument(Base):
     is_required = Column(Boolean, nullable=False, default=False)
     validation_status = Column(String(30), nullable=False, default="PENDING")
     validation_message = Column(Text, nullable=True)
+    extracted_text = Column(Text, nullable=True)
     validated_at = Column(DateTime(timezone=True), nullable=True)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 

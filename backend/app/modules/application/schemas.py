@@ -113,7 +113,9 @@ class ApplicationAISummaryData(BaseModel):
     id: UUID
     ai_status: Optional[str]
     scrutiny_summary: str
-    issues: list[str]
+    document_analysis: list[dict] = []
+    mismatches: list[str] = []
+    missing_documents: list[str] = []
     confidence_score: float
 
 

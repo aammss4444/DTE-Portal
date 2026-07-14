@@ -5,7 +5,7 @@ import { Button } from '../../components/common/UIComponents';
 import { Loader2, MoreVertical, ClipboardList, Calendar as CalendarIcon, Filter, Plus, X, Camera, MapPin, ScanFace, CheckCircle2 } from 'lucide-react';
 import attendanceService from '../../services/attendanceService';
 import { cn } from '../../utils/cn';
-import FaceScanner from '../../components/common/FaceScanner';
+import LogTeachingHourModal from './LogTeachingHourModal';
 
 const FacultyWorkLogs = () => {
   const dispatch = useDispatch();
@@ -19,79 +19,18 @@ const FacultyWorkLogs = () => {
 
   const { timetable } = useSelector((state) => state.attendance);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    faculty_credential_id: user?.id || '',
-    timetable_slot_id: '',
-    log_date: new Date().toISOString().split('T')[0],
-    lecture_type: 'THEORY',
-    topic_covered: '',
-    hours: 1,
-    attendance_count: '',
-    ai_attendance_count: '',
-    manual_attendance_count: '',
-    latitude: null,
-    longitude: null,
-    is_extra: false
-  });
-  const [isCountingFaces, setIsCountingFaces] = useState(false);
-  const [isTaggingLocation, setIsTaggingLocation] = useState(false);
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+  
+  const faceLocked = !!user?.face_registered;
 
-  // Face verification states
-  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState(null);
-  const [faceLocked, setFaceLocked] = useState(!!user?.face_registered);
-
-  const handleTagLocation = () => {
-    setIsTaggingLocation(true);
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData(prev => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }));
-          setIsTaggingLocation(false);
-          import('react-hot-toast').then(toast => toast.toast.success('Location tagged successfully'));
-        },
-        (error) => {
-          setIsTaggingLocation(false);
-          import('react-hot-toast').then(toast => toast.toast.error('Failed to get location: ' + error.message));
-        }
-      );
-    } else {
-      setIsTaggingLocation(false);
-      import('react-hot-toast').then(toast => toast.toast.error('Geolocation is not supported by your browser'));
-    }
-  };
-
-  const handleVerifySelfie = () => {
-    setVerifyResult(null);
-    setIsVerifyModalOpen(true);
-  };
-
-  const handleSelfieVerified = (faceDataUrl) => {
-    setIsVerifyModalOpen(false);
-    doVerify(faceDataUrl);
-  };
-
-  const doVerify = async (faceDataUrl) => {
-    setIsVerifying(true);
-    setVerifyResult(null);
-    try {
-      const res = await attendanceService.verifyFace(faceDataUrl);
-      setVerifyResult(res.data);
-      if (res.data.face_matched) {
-        import('react-hot-toast').then(t => t.toast.success('Face verified! Identity confirmed.'));
-      } else {
-        import('react-hot-toast').then(t => t.toast.error('Face did NOT match your locked profile.'));
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.detail || 'Verification failed';
-      import('react-hot-toast').then(t => t.toast.error(msg));
-    } finally {
-      setIsVerifying(false);
+  const handleCreateLog = async (payload) => {
+    setIsSubmittingLog(true);
+    const result = await dispatch(createLog(payload));
+    setIsSubmittingLog(false);
+    
+    if (createLog.fulfilled.match(result)) {
+      setIsModalOpen(false);
+      dispatch(fetchLogs({ faculty_credential_id: user?.id, month: selectedMonth }));
     }
   };
 
@@ -105,69 +44,6 @@ const FacultyWorkLogs = () => {
     }
   }, [dispatch, user, selectedMonth, selectedYear]);
 
-  const handleCreateLog = async (e) => {
-    e.preventDefault();
-    const dataToSubmit = { ...formData, faculty_credential_id: user.id };
-    if (dataToSubmit.is_extra) {
-      dataToSubmit.timetable_slot_id = null;
-      dataToSubmit.slot_number = 1; // Default
-    } else {
-      // Find the slot to get slot_number
-      let slot_number = 1;
-      const slot = (timetable || []).find(s => s.id === dataToSubmit.timetable_slot_id);
-      if (slot) {
-        slot_number = slot.slot_number;
-        dataToSubmit.subject_name = slot.subject_name;
-        dataToSubmit.class_name = slot.class_name;
-      }
-      dataToSubmit.slot_number = slot_number;
-    }
-    
-    // Map log_date to lecture_date for backend
-    dataToSubmit.lecture_date = dataToSubmit.log_date;
-    delete dataToSubmit.log_date;
-    
-    // Handle null coordinates
-    dataToSubmit.latitude = dataToSubmit.latitude || 0.0;
-    dataToSubmit.longitude = dataToSubmit.longitude || 0.0;
-
-    // Convert empty string counts to null
-    dataToSubmit.ai_attendance_count = dataToSubmit.ai_attendance_count ? parseInt(dataToSubmit.ai_attendance_count) : null;
-    dataToSubmit.manual_attendance_count = dataToSubmit.manual_attendance_count ? parseInt(dataToSubmit.manual_attendance_count) : null;
-
-    // Set the final attendance_count to manual if provided, otherwise AI.
-    dataToSubmit.attendance_count = dataToSubmit.manual_attendance_count || dataToSubmit.ai_attendance_count || null;
-    
-    const result = await dispatch(createLog(dataToSubmit));
-    if (!result.error) {
-      setIsModalOpen(false);
-      setVerifyResult(null); // Reset for next log
-      dispatch(fetchLogs({ month: selectedMonth, academicYear: '2026-27' }));
-    }
-  };
-
-  const handleImageCapture = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    setIsCountingFaces(true);
-    try {
-      const response = await attendanceService.countFaces(file);
-      if (response.status === 'success') {
-        setFormData(prev => ({ 
-          ...prev, 
-          ai_attendance_count: response.data.face_count 
-        }));
-        import('react-hot-toast').then(toast => toast.toast.success(`AI counted ${response.data.face_count} students`));
-      } else {
-        import('react-hot-toast').then(toast => toast.toast.error(response.message || 'Failed to process image'));
-      }
-    } catch (error) {
-      import('react-hot-toast').then(toast => toast.toast.error('Error counting faces'));
-    } finally {
-      setIsCountingFaces(false);
-    }
-  };
 
   const handleBulkSubmit = () => {
     const draftLogs = logs.filter(l => l.log_status === 'DRAFT').map(l => l.id);
@@ -175,8 +51,6 @@ const FacultyWorkLogs = () => {
       dispatch(bulkSubmit(draftLogs));
     }
   };
-
-
 
   const statusColors = {
     'DRAFT': 'bg-slate-100 text-slate-600',
@@ -368,248 +242,15 @@ const FacultyWorkLogs = () => {
       </div>
 
       {/* Add Log Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Log Teaching Hour</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreateLog} className="p-5 space-y-3">
-              <div className="flex items-center gap-2 mb-2">
-                <input 
-                  type="checkbox" 
-                  id="is_extra" 
-                  checked={formData.is_extra} 
-                  onChange={(e) => setFormData({...formData, is_extra: e.target.checked})}
-                />
-                <label htmlFor="is_extra" className="text-sm font-bold text-slate-700">This is an extra/unscheduled lecture</label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Log Date</label>
-                  <input 
-                    type="date"
-                    required
-                    value={formData.log_date}
-                    onChange={(e) => setFormData({...formData, log_date: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Lecture Type</label>
-                  <select 
-                    value={formData.lecture_type}
-                    onChange={(e) => setFormData({...formData, lecture_type: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold"
-                  >
-                    <option value="THEORY">Theory</option>
-                    <option value="LAB">Lab</option>
-                    <option value="TUTORIAL">Tutorial</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {!formData.is_extra && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Timetable Slot</label>
-                    <select 
-                      required
-                      value={formData.timetable_slot_id}
-                      onChange={(e) => setFormData({...formData, timetable_slot_id: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold"
-                    >
-                    <option value="">Select Slot...</option>
-                    {(timetable || []).map(slot => (
-                      <option key={slot.id} value={slot.id}>
-                        {slot.day_of_week || 'Class'} - {slot.start_time?.substring(0,5)} ({slot.subject_name || 'Class'})
-                      </option>
-                    ))}
-                    </select>
-                  </div>
-                )}
-                {formData.is_extra && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Subject Name</label>
-                    <input 
-                      type="text"
-                      required
-                      value={formData.subject_name || ''}
-                      onChange={(e) => setFormData({...formData, subject_name: e.target.value})}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold"
-                      placeholder="Subject"
-                    />
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Duration (Hours)</label>
-                  <input 
-                    type="number"
-                    min="0.5"
-                    step="0.5"
-                    required
-                    value={formData.hours}
-                    onChange={(e) => setFormData({...formData, hours: parseFloat(e.target.value)})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Topic Covered</label>
-                <textarea 
-                  required
-                  value={formData.topic_covered}
-                  onChange={(e) => setFormData({...formData, topic_covered: e.target.value})}
-                  placeholder="Describe the topics taught in this session..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium h-16"
-                />
-              </div>
-
-              <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3 space-y-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Student Attendance</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Capture an image to automatically count students using AI, or enter manually.</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1">AI Face Count Capture</label>
-                    <div className="relative">
-                      <input 
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleImageCapture}
-                        disabled={isCountingFaces}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                      />
-                      <div className={`w-full bg-white border border-indigo-200 hover:border-indigo-400 rounded-xl px-4 py-2 flex items-center justify-center gap-2 transition-colors ${isCountingFaces ? 'opacity-50' : ''}`}>
-                        {isCountingFaces ? <Loader2 size={16} className="text-indigo-500 animate-spin" /> : <Camera size={16} className="text-indigo-500" />}
-                        <span className="text-xs font-bold text-indigo-600">
-                          {isCountingFaces ? 'Counting...' : (formData.ai_attendance_count ? `AI Count: ${formData.ai_attendance_count}` : 'Capture Image')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Manual Count</label>
-                    <input 
-                      type="number"
-                      min="0"
-                      value={formData.manual_attendance_count}
-                      onChange={(e) => setFormData({...formData, manual_attendance_count: e.target.value ? parseInt(e.target.value) : ''})}
-                      placeholder="e.g. 45"
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-3 space-y-2">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">Location Tagging</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Please tag your current location before saving.</p>
-                  </div>
-                  <Button 
-                    type="button" 
-                    variant={formData.latitude ? "outline" : "primary"}
-                    onClick={handleTagLocation}
-                    disabled={isTaggingLocation}
-                    className="text-xs"
-                  >
-                    {isTaggingLocation ? <Loader2 className="animate-spin mr-2" size={14} /> : <MapPin size={14} className="mr-2" />}
-                    {formData.latitude ? 'Retag Location' : 'Tag Location'}
-                  </Button>
-                </div>
-                {formData.latitude && (
-                  <p className="text-xs font-bold text-emerald-600">
-                    Location captured: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                  </p>
-                )}
-              </div>
-
-              {/* Faculty Face Verification UI */}
-              <div className="bg-slate-50/50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">Faculty Face Verification</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {faceLocked 
-                      ? "Please verify your identity to submit." 
-                      : "Lock your profile on dashboard first to verify."}
-                  </p>
-                </div>
-                <Button 
-                  type="button"
-                  onClick={handleVerifySelfie}
-                  disabled={!faceLocked || isVerifying || verifyResult?.face_matched}
-                  className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-xl transition-all",
-                    verifyResult?.face_matched 
-                      ? "bg-emerald-100 text-emerald-700 border-none opacity-100 cursor-default" 
-                      : "bg-indigo-500 hover:bg-indigo-600 text-white border-none shadow-md shadow-indigo-500/20"
-                  )}
-                >
-                  {isVerifying ? (
-                    <Loader2 className="animate-spin" size={14} />
-                  ) : verifyResult?.face_matched ? (
-                    <>
-                      <CheckCircle2 size={14} className="mr-1.5" />
-                      Verified
-                    </>
-                  ) : (
-                    <>
-                      <ScanFace size={14} className="mr-1.5" />
-                      Verify Face
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {verifyResult && !verifyResult.face_matched && (
-                <div className="text-rose-500 text-xs font-bold text-center mt-2">
-                  ❌ Verification Failed — Face does NOT match your locked profile.
-                </div>
-              )}
-
-              <div className="pt-2 flex justify-end gap-3">
-                <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button 
-                  variant="primary" 
-                  type="submit" 
-                  className="!bg-black !text-white hover:!bg-slate-800 disabled:opacity-50"
-                  disabled={!formData.latitude || !formData.longitude || !verifyResult?.face_matched}
-                >
-                  Save as Draft
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Face Verify via Selfie Modal */}
-      {isVerifyModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="w-full max-w-lg">
-            <h2 className="text-2xl font-bold text-white text-center mb-6">Verify Your Identity</h2>
-            <p className="text-slate-300 text-center text-sm mb-6 max-w-md mx-auto">
-              Take a selfie to verify your face against the locked profile.
-            </p>
-            <FaceScanner 
-              onLivenessVerified={handleSelfieVerified} 
-              onCancel={() => setIsVerifyModalOpen(false)} 
-            />
-          </div>
-        </div>
-      )}
+      <LogTeachingHourModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateLog}
+        timetable={timetable}
+        isSubmitting={isSubmittingLog}
+        faceLocked={faceLocked}
+        user={user}
+      />
     </div>
   );
 };

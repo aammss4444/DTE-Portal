@@ -87,14 +87,21 @@ Documents:
 {json.dumps(extracted_docs, ensure_ascii=False)}
 
 Tasks:
-1. Extract key info (degree, year, university)
-2. Compare with profile
-3. Detect missing required documents
-4. Visually compare the candidate's photo with the photo on the Aadhar card to verify they match.
-5. Verify every candidate profile detail against the Aadhar card details and other submitted documents.
-6. Detect any mismatches in textual details or visual face match.
-7. Generate a comprehensive and detailed scrutiny summary based on visual and textual verification.
-8. Classify application
+1. Extract key info from each document (degree, year, university, etc).
+2. Compare extracted information with the candidate's profile.
+3. Detect any missing required documents.
+4. Visually compare the candidate's photo (if provided) with the photo on the Aadhar card to verify they match.
+5. Perform an EXTREMELY STRICT, point-by-point verification of candidate profile details:
+   - Check if Candidate Name matches EXACTLY across the profile and ALL documents (Aadhar, Degree, etc.). Flag ANY spelling or initial differences.
+   - Check if Address matches. Flag any missing or mismatched addresses.
+   - Check if Passing Degree precisely matches the education details on certificates.
+   - Check Passing Year for mismatches or missing years on certificates.
+   - Verify Date of Birth (DOB) across documents. Flag if it is missing or mismatched anywhere.
+6. For each document in `document_analysis`, list any document-specific anomalies as highly descriptive sentences in the `issues` array. MUST BE STRINGS, NOT OBJECTS.
+7. For the overall candidate profile verification, list any mismatches (like name mismatch, photo mismatch, DOB mismatch) as highly descriptive full sentences in the `mismatches` array. MUST BE AN ARRAY OF STRINGS, NOT OBJECTS. Example: "The candidate name 'Jane Doe' on the profile does not exactly match 'Jane T. Doe' on the Aadhar Card."
+8. Generate a comprehensive and detailed scrutiny summary based on visual and textual verification.
+9. Classify application status as COMPLETE, INCOMPLETE, or REQUIRES_REVIEW.
+
 
 Return JSON:
 {{
@@ -106,12 +113,12 @@ Return JSON:
         "year": "...",
         "university": "..."
       }},
-      "issues": []
+      "issues": ["point-wise issue 1", "point-wise issue 2"]
     }}
   ],
-  "missing_documents": [],
-  "mismatches": [],
-  "scrutiny_summary": "",
+  "missing_documents": ["document name 1"],
+  "mismatches": ["point-wise profile anomaly 1", "point-wise profile anomaly 2"],
+  "scrutiny_summary": "...",
   "status": "COMPLETE | INCOMPLETE | REQUIRES_REVIEW",
   "confidence_score": 0.0
 }}

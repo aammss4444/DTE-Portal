@@ -27,11 +27,12 @@ from app.modules.application.schemas import (
     ApplicationActionRequest,
 )
 from app.services.storage_service import save_file
+from app.services.resume_parser import extract_text_from_pdf
 
 
 ALLOWED_MIME_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff"}
 MAX_FILE_SIZE_KB = 2048
-REQUIRED_DOCUMENTS = {"PHOTO", "SIGNATURE", "AADHAR", "DEGREE_CERTIFICATE", "MARKSHEET"}
+REQUIRED_DOCUMENTS = {"PHOTO", "SIGNATURE", "AADHAR", "DEGREE_CERTIFICATE", "MARKSHEET", "RESUME"}
 ALLOWED_DOCUMENT_TYPES = {
     "PHOTO",
     "SIGNATURE",
@@ -43,6 +44,7 @@ ALLOWED_DOCUMENT_TYPES = {
     "CASTE_CERTIFICATE",
     "NOC",
     "PUBLICATION_PROOF",
+    "RESUME",
     "OTHER",
 }
 
@@ -251,6 +253,12 @@ class ApplicationService:
             created_docs.append(document)
 
         await db.flush()
+        # Extract text from RESUME PDFs for AI ranking
+        for doc in created_docs:
+            if doc.document_type == "RESUME" and doc.mime_type == "application/pdf":
+                extracted = extract_text_from_pdf(doc.file_path)
+                if extracted:
+                    doc.extracted_text = extracted
         for doc in created_docs:
             await self._write_audit(
                 db,

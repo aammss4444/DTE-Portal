@@ -10,10 +10,11 @@ import {
   User,
   ShieldCheck,
   RefreshCw,
-  Loader2
+  Loader2,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '../../components/common/UIComponents';
-import { fetchRankedList } from './selectionSlice';
+import { fetchRankedList, generateRankings } from './selectionSlice';
 import { cn } from '../../utils/cn';
 
 const RankedList = ({ advertisementId, onConfirm, onBack, isConfirming }) => {
@@ -32,7 +33,8 @@ const RankedList = ({ advertisementId, onConfirm, onBack, isConfirming }) => {
     onConfirm(remarks);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    await dispatch(generateRankings(advertisementId)).unwrap();
     dispatch(fetchRankedList(advertisementId));
   };
 
@@ -102,7 +104,7 @@ const RankedList = ({ advertisementId, onConfirm, onBack, isConfirming }) => {
               <div 
                 key={cand.application_id}
                 className={cn(
-                  "relative overflow-hidden p-6 border rounded-[2rem] flex items-center justify-between transition-all hover:scale-[1.01]",
+                  "relative overflow-hidden p-6 border rounded-[2rem] flex flex-col gap-4 transition-all hover:scale-[1.01]",
                   cand.result_status === 'SELECTED' ? "border-emerald-200 bg-emerald-50/30 ring-1 ring-emerald-100 shadow-sm" : 
                   cand.result_status === 'WAITLISTED' ? "border-amber-200 bg-amber-50/20" : "border-slate-100 bg-white"
                 )}
@@ -114,41 +116,81 @@ const RankedList = ({ advertisementId, onConfirm, onBack, isConfirming }) => {
                   cand.result_status === 'WAITLISTED' ? "bg-amber-400" : "bg-slate-200"
                 )} />
 
-                <div className="flex items-center gap-6">
-                  <div className={cn(
-                    "w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-sm transition-transform",
-                    idx === 0 ? "bg-amber-400 text-white rotate-3" : 
-                    idx === 1 ? "bg-slate-300 text-white -rotate-3" : 
-                    idx === 2 ? "bg-orange-300 text-white rotate-2" : "bg-slate-50 text-slate-400"
-                  )}>
-                    {idx === 0 ? <Trophy size={28} /> : cand.rank}
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-6">
+                    <div className={cn(
+                      "w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl shadow-sm transition-transform",
+                      idx === 0 ? "bg-amber-400 text-white rotate-3" : 
+                      idx === 1 ? "bg-slate-300 text-white -rotate-3" : 
+                      idx === 2 ? "bg-orange-300 text-white rotate-2" : "bg-slate-50 text-slate-400"
+                    )}>
+                      {idx === 0 ? <Trophy size={28} /> : cand.rank}
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center gap-2">
+                         <h3 className="font-bold text-slate-900 text-lg">{cand.candidate_name}</h3>
+                         {idx === 0 && <span className="bg-amber-100 text-amber-700 text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-widest">Topper</span>}
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium flex items-center gap-3">
+                         <span>Score: <span className="text-slate-900 font-bold">{cand.final_score}</span></span>
+                         <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                         <span>APP #{cand.application_id.slice(0,6).toUpperCase()}</span>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div>
-                    <div className="flex items-center gap-2">
-                       <h3 className="font-bold text-slate-900 text-lg">{cand.candidate_name}</h3>
-                       {idx === 0 && <span className="bg-amber-100 text-amber-700 text-[8px] font-bold uppercase px-2 py-0.5 rounded-full tracking-widest">Topper</span>}
-                    </div>
-                    <div className="text-xs text-slate-500 font-medium flex items-center gap-3">
-                       <span>Score: <span className="text-slate-900 font-bold">{cand.final_score}</span></span>
-                       <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                       <span>APP #{cand.application_id.slice(0,6).toUpperCase()}</span>
-                    </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className={cn(
+                      "px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm",
+                      cand.result_status === 'SELECTED' ? "bg-emerald-500 text-white" : 
+                      cand.result_status === 'WAITLISTED' ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"
+                    )}>
+                      {cand.result_status}
+                    </span>
+                    {cand.waitlist_position && (
+                      <span className="text-[10px] font-bold text-amber-600">Position #{cand.waitlist_position}</span>
+                    )}
                   </div>
                 </div>
-                
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className={cn(
-                    "px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm",
-                    cand.result_status === 'SELECTED' ? "bg-emerald-500 text-white" : 
-                    cand.result_status === 'WAITLISTED' ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"
-                  )}>
-                    {cand.result_status}
-                  </span>
-                  {cand.waitlist_position && (
-                    <span className="text-[10px] font-bold text-amber-600">Position #{cand.waitlist_position}</span>
-                  )}
-                </div>
+
+                {/* AI Rationale Section */}
+                {(cand.score_breakdown?.reasons?.length > 0 || cand.score_breakdown?.reason) && (
+                  <div className="pl-[5.5rem] pr-4">
+                    <div className="bg-white/60 rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                      <h4 className="text-[10px] font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-indigo-500" /> AI Selection Rationale
+                      </h4>
+                      <ul className="space-y-1.5">
+                        {cand.score_breakdown?.reasons && cand.score_breakdown.reasons.length > 0 ? (
+                          cand.score_breakdown.reasons.map((r, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                              <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                              <span>{r}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                            <CheckCircle2 size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                            <span>{cand.score_breakdown.reason}</span>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Principal Interview Remarks Section */}
+                {cand.remarks && (
+                  <div className="pl-[5.5rem] pr-4 pb-4">
+                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm space-y-2">
+                      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <MessageSquare size={14} className="text-indigo-400" /> Principal Interview Notes
+                      </h4>
+                      <p className="text-sm text-slate-700 italic">"{cand.remarks}"</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}

@@ -122,18 +122,18 @@ class LivenessService:
         face_resized = cv2.resize(face, (128, 128))
         gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
 
-        # LBP histogram (using cv2 directly; 8-neighbour, radius 1)
-        # We'll compute a simple histogram of pixel intensities as a proxy
-        # for a full LBP, which is sufficient for 1:1 verification.
-        hist_gray = cv2.calcHist([gray], [0], None, [64], [0, 256]).flatten()
-
-        # HSV colour histograms
-        hsv = cv2.cvtColor(face_resized, cv2.COLOR_BGR2HSV)
-        hist_h = cv2.calcHist([hsv], [0], None, [32], [0, 180]).flatten()
-        hist_s = cv2.calcHist([hsv], [1], None, [32], [0, 256]).flatten()
+        # Resize to a smaller grid for spatial matching (Normalized Cross-Correlation)
+        face_spatial = cv2.resize(gray, (32, 32)).flatten().astype(np.float32)
+        # Mean-subtract to add invariance to overall lighting brightness
+        face_spatial = face_spatial - np.mean(face_spatial)
+        
+        # We also keep smaller color histograms to ensure skin tone matches
+        hist_h = cv2.calcHist([hsv], [0], None, [16], [0, 180]).flatten()
+        hist_s = cv2.calcHist([hsv], [1], None, [16], [0, 256]).flatten()
 
         # Concatenate and L2-normalise
-        feature = np.concatenate([hist_gray, hist_h, hist_s])
+        # This creates a vector of 1024 + 16 + 16 = 1056 elements
+        feature = np.concatenate([face_spatial, hist_h, hist_s])
         norm = np.linalg.norm(feature)
         if norm > 0:
             feature = feature / norm
@@ -156,13 +156,17 @@ class LivenessService:
             a = np.array(current_embedding)
             b = np.array(registered_embedding)
 
+            # If they locked their face with an old embedding shape, reject it safely
+            if a.shape != b.shape:
+                return False
+
             cosine_similarity = np.dot(a, b) / (
                 np.linalg.norm(a) * np.linalg.norm(b) + 1e-10
             )
 
-            # Threshold: 0.70 similarity → match
-            # (histograms of the same person's face are fairly stable)
-            threshold = 0.70
+            # Threshold: 0.85 similarity → match
+            # (Spatial NCC + histograms requires much stricter similarity)
+            threshold = 0.85
             match = bool(cosine_similarity >= threshold)
             print(
                 f"Face match cosine similarity: {float(cosine_similarity):.4f} "

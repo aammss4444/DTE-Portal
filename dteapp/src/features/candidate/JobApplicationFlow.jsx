@@ -9,13 +9,13 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
   const dispatch = useDispatch();
   const { currentApplication, loading, error, success, step } = useSelector((state) => state.application);
   
-  const [coverLetter, setCoverLetter] = useState('');
   const [documentFiles, setDocumentFiles] = useState({
     PHOTO: null,
     SIGNATURE: null,
     AADHAR: null,
     DEGREE_CERTIFICATE: null,
     MARKSHEET: null,
+    RESUME: null,
     OTHER: []
   });
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
@@ -29,9 +29,13 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
 
   const handleInitialApply = (e) => {
     e.preventDefault();
+    if (currentApplication?.id) {
+      dispatch(setStep(2));
+      return;
+    }
     dispatch(createApplication({ 
       advertisement_id: advertisementId, 
-      cover_letter: coverLetter,
+      cover_letter: "",
       applied_designation: advertisementTitle
     }));
   };
@@ -39,28 +43,32 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
   const handleDocumentUpload = async (e) => {
     e.preventDefault();
     
-    // Upload required single files
-    const requiredTypes = ['PHOTO', 'SIGNATURE', 'AADHAR', 'DEGREE_CERTIFICATE', 'MARKSHEET'];
-    for (const type of requiredTypes) {
-      if (documentFiles[type]) {
-        const formData = new FormData();
-        formData.append('documents', documentFiles[type]);
-        formData.append('document_type', type);
-        await dispatch(uploadDocuments({ applicationId: currentApplication.id, formData }));
+    try {
+      // Upload required single files
+      const requiredTypes = ['PHOTO', 'SIGNATURE', 'AADHAR', 'DEGREE_CERTIFICATE', 'MARKSHEET', 'RESUME'];
+      for (const type of requiredTypes) {
+        if (documentFiles[type]) {
+          const formData = new FormData();
+          formData.append('documents', documentFiles[type]);
+          formData.append('document_type', type);
+          await dispatch(uploadDocuments({ applicationId: currentApplication.id, formData })).unwrap();
+        }
       }
-    }
 
-    // Upload additional files
-    if (documentFiles.OTHER.length > 0) {
-      for (const file of documentFiles.OTHER) {
-        const formData = new FormData();
-        formData.append('documents', file);
-        formData.append('document_type', 'OTHER');
-        await dispatch(uploadDocuments({ applicationId: currentApplication.id, formData }));
+      // Upload additional files
+      if (documentFiles.OTHER.length > 0) {
+        for (const file of documentFiles.OTHER) {
+          const formData = new FormData();
+          formData.append('documents', file);
+          formData.append('document_type', 'OTHER');
+          await dispatch(uploadDocuments({ applicationId: currentApplication.id, formData })).unwrap();
+        }
       }
-    }
 
-    dispatch(setStep(3));
+      dispatch(setStep(3));
+    } catch (err) {
+      console.error("Upload failed", err);
+    }
   };
 
   const handleFinalSubmit = (e) => {
@@ -136,19 +144,42 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
 
         {step === 1 && (
           <form onSubmit={handleInitialApply} className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-secondary uppercase tracking-wider">Cover Letter / Statement of Interest</label>
-              <textarea 
-                className="w-full p-4 rounded-xl border border-border bg-muted/20 focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all min-h-[200px] text-sm"
-                placeholder="Briefly describe why you are interested in this position and why you are a good fit..."
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                required
-              />
-              <p className="text-[10px] text-secondary">Minimum 50 characters required.</p>
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-secondary uppercase tracking-wider block mb-2">Attach Resume / CV</label>
+              <div className={cn(
+                "w-full p-8 rounded-xl border-2 border-dashed transition-all",
+                documentFiles.RESUME ? "border-emerald-500 bg-emerald-50/10" : "border-border bg-muted/20 hover:border-accent"
+              )}>
+                {!documentFiles.RESUME ? (
+                  <div className="relative flex flex-col items-center justify-center text-center">
+                    <input 
+                      type="file" 
+                      accept="application/pdf"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      onChange={(e) => setDocumentFiles(prev => ({ ...prev, RESUME: e.target.files[0] }))}
+                      required
+                    />
+                    <Upload size={32} className="text-secondary mb-3" />
+                    <p className="text-sm font-medium text-foreground">Click or drag PDF here to upload</p>
+                    <p className="text-xs text-secondary mt-1">Maximum size: 2MB</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center relative z-20">
+                    <CheckCircle size={32} className="text-emerald-500 mb-3" />
+                    <span className="text-sm font-medium text-foreground truncate max-w-[80%]">{documentFiles.RESUME.name}</span>
+                    <button 
+                      type="button"
+                      onClick={() => setDocumentFiles(prev => ({ ...prev, RESUME: null }))}
+                      className="mt-4 px-4 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full text-xs font-semibold transition-colors"
+                    >
+                      Remove File
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end">
-              <Button variant="primary" className="px-8 py-3 group bg-slate-900 text-white hover:bg-black" disabled={loading || coverLetter.length < 10}>
+              <Button variant="primary" className="px-8 py-3 group bg-slate-900 text-white hover:bg-black" disabled={loading || !documentFiles.RESUME}>
                 {loading ? 'Processing...' : (
                   <>
                     Next: Upload Documents <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
@@ -163,6 +194,7 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
           <form onSubmit={handleDocumentUpload} className="space-y-8 animate-in fade-in slide-in-from-right-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
+                { id: 'RESUME', label: 'Resume / CV (PDF)', type: 'application/pdf', locked: true },
                 { id: 'PHOTO', label: 'Recent Photograph', type: 'image/*' },
                 { id: 'SIGNATURE', label: 'Signature Specimen', type: 'image/*' },
                 { id: 'AADHAR', label: 'Aadhar Card (PDF/Image)', type: 'application/pdf,image/*' },
@@ -194,13 +226,15 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
                   ) : (
                     <div className="flex items-center justify-between py-1">
                       <span className="text-xs font-medium truncate max-w-[120px]">{documentFiles[doc.id].name}</span>
-                      <button 
-                        type="button"
-                        onClick={() => setDocumentFiles(prev => ({ ...prev, [doc.id]: null }))}
-                        className="p-1 hover:bg-red-100 text-red-500 rounded-full transition-colors"
-                      >
-                        <X size={12} />
-                      </button>
+                      {!doc.locked && (
+                        <button 
+                          type="button"
+                          onClick={() => setDocumentFiles(prev => ({ ...prev, [doc.id]: null }))}
+                          className="p-1 hover:bg-red-100 text-red-500 rounded-full transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -244,7 +278,7 @@ const JobApplicationFlow = ({ advertisementId, advertisementTitle, onClose, onSu
               <Button 
                 variant="primary" 
                 className="px-8 py-3 group bg-slate-900 text-white hover:bg-black" 
-                disabled={loading || !['PHOTO', 'SIGNATURE', 'AADHAR', 'DEGREE_CERTIFICATE', 'MARKSHEET'].every(k => !!documentFiles[k])}
+                disabled={loading || !['PHOTO', 'SIGNATURE', 'AADHAR', 'DEGREE_CERTIFICATE', 'MARKSHEET', 'RESUME'].every(k => !!documentFiles[k])}
               >
                 {loading ? 'Uploading...' : (
                   <>

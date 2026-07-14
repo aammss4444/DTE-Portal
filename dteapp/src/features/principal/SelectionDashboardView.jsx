@@ -87,7 +87,7 @@ const SelectionDashboardView = ({ advertisementId, onStartSelection }) => {
           <Button variant="outline" onClick={() => dispatch(fetchDashboard(advertisementId))} className="p-2 border-slate-200">
             <RefreshCw size={18} className={cn(loading && "animate-spin")} />
           </Button>
-          <Button onClick={onStartSelection} className="bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-sm">
+          <Button onClick={onStartSelection} className="bg-black text-white border border-slate-800 hover:bg-slate-900 shadow-sm">
             Enter Selection Workflow
             <ArrowRight size={18} className="ml-2" />
           </Button>

@@ -85,7 +85,7 @@ const ShortlistCandidates = ({ advertisementId, onSuccess, onSkip }) => {
           <p className="text-sm text-slate-500 font-medium">Review and select candidates for the interview phase.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={onSkip} className="border-slate-200">
+          <Button onClick={onSkip} className="bg-black text-white border border-slate-800 hover:bg-slate-900 shadow-sm">
             View Marking Table
           </Button>
           <Button 
@@ -129,7 +129,7 @@ const ShortlistCandidates = ({ advertisementId, onSuccess, onSkip }) => {
                       <Search size={48} className="mb-4 opacity-20" />
                       <p className="font-medium italic text-lg text-slate-500">All applications processed.</p>
                       <p className="text-sm mt-1 mb-6">Your shortlist is ready. Proceed to interview scoring.</p>
-                      <Button variant="primary" onClick={onSkip} className="shadow-sm">
+                      <Button onClick={onSkip} className="bg-black text-white border border-slate-800 hover:bg-slate-900 shadow-sm">
                         Proceed to Interview Marks
                         <ArrowRight size={16} className="ml-2" />
                       </Button>

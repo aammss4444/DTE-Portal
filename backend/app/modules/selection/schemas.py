@@ -25,12 +25,14 @@ class InterviewMarksRequest(BaseModel):
     teaching_aptitude: Decimal = Field(..., ge=0, le=100)
     communication_skills: Decimal = Field(..., ge=0, le=100)
     overall_impression: Decimal = Field(..., ge=0, le=100)
+    remarks: Optional[str] = None
 
 class InterviewMarksUpdateRequest(BaseModel):
     subject_knowledge: Optional[Decimal] = Field(None, ge=0, le=100)
     teaching_aptitude: Optional[Decimal] = Field(None, ge=0, le=100)
     communication_skills: Optional[Decimal] = Field(None, ge=0, le=100)
     overall_impression: Optional[Decimal] = Field(None, ge=0, le=100)
+    remarks: Optional[str] = None
 
 class ConfirmSelectionRequest(BaseModel):
     remarks: str
@@ -44,6 +46,7 @@ class ShortlistedCandidateResponse(BaseModel):
     experience_years: float
     is_present: bool
     interview_total: Optional[Decimal] = None
+    remarks: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -58,6 +61,7 @@ class RankedCandidateResponse(BaseModel):
     score_breakdown: Dict[str, Any]
     qualification: str
     experience_years: float
+    remarks: Optional[str] = None
 
 class SelectionResultSummary(BaseModel):
     selected_count: int

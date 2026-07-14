@@ -118,6 +118,32 @@ class ApplicationController:
                 except:
                     pass
 
+    async def parse_resume(self, db: AsyncSession, current_user: User, resume: UploadFile):
+        if not resume.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported for resume parsing")
+
+        pdf_bytes = await resume.read()
+        
+        from app.services.resume_parser import extract_text_from_bytes
+        text = extract_text_from_bytes(pdf_bytes)
+        
+        if not text:
+            raise HTTPException(status_code=400, detail="Could not extract text from the provided PDF")
+
+        from app.services.openai_client import call_llm_parse_resume
+        import json
+        
+        parsed_json_str = await call_llm_parse_resume(text)
+        if not parsed_json_str:
+            raise HTTPException(status_code=500, detail="Failed to parse resume with AI")
+            
+        try:
+            parsed_data = json.loads(parsed_json_str)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="AI returned invalid JSON")
+            
+        return {"status": "success", "data": parsed_data}
+
     async def create_application(self, db: AsyncSession, current_user: User, req: ApplicationCreateRequest):
         data = await self.service.create_application(db, current_user, req)
         payload = ApplicationResponse.model_validate(data, from_attributes=True).model_dump()
@@ -223,13 +249,24 @@ class ApplicationController:
             
         ai_data = json.loads(app.ai_scrutiny_data) if app.ai_scrutiny_data else {}
         
+        def _normalize_to_str(item):
+            if isinstance(item, str):
+                return item
+            if isinstance(item, dict):
+                # Try to extract useful info if it's a dict
+                parts = [f"{k}: {v}" for k, v in item.items() if v]
+                return " - ".join(parts)
+            return str(item)
+
         return {
             "status": "success",
             "data": {
                 "id": app.id,
                 "ai_status": app.ai_status,
                 "scrutiny_summary": ai_data.get("scrutiny_summary", "No analysis available"),
-                "issues": [issue for doc in ai_data.get("document_analysis", []) for issue in doc.get("issues", [])],
+                "document_analysis": ai_data.get("document_analysis", []),
+                "mismatches": [_normalize_to_str(m) for m in ai_data.get("mismatches", [])],
+                "missing_documents": [_normalize_to_str(m) for m in ai_data.get("missing_documents", [])],
                 "confidence_score": app.ai_confidence_score / 100.0 if app.ai_confidence_score else 0.0
             }
         }

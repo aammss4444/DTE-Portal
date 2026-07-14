@@ -24,7 +24,8 @@ import {
   ScanFace,
   Users
 } from 'lucide-react';
-import { fetchLogs, fetchMonthlySummary, createLog, fetchTimetable, bulkSubmit, fetchFaceUpdateStatus, requestFaceUpdate } from './attendanceSlice';
+import { fetchLogs, fetchMonthlySummary, createLog, fetchTimetable, bulkSubmit, fetchFaceUpdateStatus, requestFaceUpdate, submitLog } from './attendanceSlice';
+import LogTeachingHourModal from './LogTeachingHourModal';
 import attendanceService from '../../services/attendanceService';
 import { Button } from '../../components/common/UIComponents';
 import { cn } from '../../utils/cn';
@@ -55,6 +56,7 @@ const LecturerDashboard = () => {
   const [isFaceLockOpen, setIsFaceLockOpen] = useState(false);
   const [isFaceUpdateModalOpen, setIsFaceUpdateModalOpen] = useState(false);
   const [faceUpdateReason, setFaceUpdateReason] = useState('');
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
 
   // Face verification states
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
@@ -86,20 +88,11 @@ const LecturerDashboard = () => {
     }
   }, [dispatch, user]);
 
-  const handleCreateLog = async (e) => {
-    e.preventDefault();
-    
-    // Find the selected slot to get the correct slot_number and subject_name if applicable
-    const selectedSlot = timetable.find(s => s.id === formData.timetable_slot_id);
-    
-    const payload = {
-      ...formData,
-      slot_number: selectedSlot ? selectedSlot.slot_number : formData.slot_number,
-      subject_name: selectedSlot ? selectedSlot.subject_name : formData.subject_name,
-      is_extra: !formData.timetable_slot_id
-    };
-
+  const handleCreateLog = async (payload) => {
+    setIsSubmittingLog(true);
     const result = await dispatch(createLog(payload));
+    setIsSubmittingLog(false);
+    
     if (createLog.fulfilled.match(result)) {
       setIsModalOpen(false);
       setVerifyResult(null); // Reset for next log
@@ -191,52 +184,6 @@ const LecturerDashboard = () => {
     }
   };
 
-  const handleImageCapture = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    setIsCountingFaces(true);
-    try {
-      const response = await attendanceService.countFaces(file);
-      if (response.status === 'success') {
-        const count = response.data.face_count;
-        setAiCount(count);
-        setFormData(prev => ({ ...prev, attendance_count: count }));
-        import('react-hot-toast').then(toast => toast.toast.success(`AI counted ${count} students`));
-      } else {
-        import('react-hot-toast').then(toast => toast.toast.error(response.message || 'Failed to process image'));
-      }
-    } catch (error) {
-      import('react-hot-toast').then(toast => toast.toast.error('Error counting faces'));
-    } finally {
-      setIsCountingFaces(false);
-    }
-  };
-
-  const handlePinLocation = () => {
-    if (!navigator.geolocation) {
-      import('react-hot-toast').then(toast => toast.toast.error('Geolocation is not supported by your browser'));
-      return;
-    }
-    
-    setIsPinningLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData(prev => ({ 
-          ...prev, 
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }));
-        setIsPinningLocation(false);
-        import('react-hot-toast').then(toast => toast.toast.success('Location pinned successfully!'));
-      },
-      (error) => {
-        setIsPinningLocation(false);
-        import('react-hot-toast').then(toast => toast.toast.error('Unable to retrieve your location'));
-      }
-    );
-  };
-
   const statusColors = {
     'DRAFT': 'bg-slate-100 text-slate-600',
     'SUBMITTED': 'bg-amber-100 text-amber-600',
@@ -325,8 +272,6 @@ const LecturerDashboard = () => {
               Log Lecture
             </Button>
           </div>
-
-          {/* Verification result banner (hidden as we verify in modal now) */}
         </div>
       </div>
 
@@ -458,9 +403,8 @@ const LecturerDashboard = () => {
                                 onClick={async () => {
                                   const result = await dispatch(submitLog(log.id));
                                   if (submitLog.fulfilled.match(result)) {
-                                    const credId = user?.faculty_credential_id || user?.id;
-                                    dispatch(fetchLogs({ faculty_credential_id: credId, month: currentMonth }));
-                                    dispatch(fetchMonthlySummary({ facultyCredentialId: credId, academicYear, month: currentMonth }));
+                                    dispatch(fetchLogs({ month: currentMonth }));
+                                    dispatch(fetchMonthlySummary({ academicYear, month: currentMonth }));
                                   }
                                 }}
                                 className="text-emerald-600 hover:bg-emerald-50 p-2 rounded-xl transition-all"
@@ -563,250 +507,16 @@ const LecturerDashboard = () => {
         </div>
       </div>
 
-      {/* Add Log Modal */}
+      {/* Log Teaching Hour Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-slate-950 border border-slate-800 rounded-[32px] w-full max-w-3xl max-h-[95vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-800/60 flex items-center justify-between shrink-0 bg-slate-900/40">
-              <h3 className="text-xl font-black text-white tracking-tight">Log Teaching Hour</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-900 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-            
-            {/* Body */}
-            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-              <form id="log-form" onSubmit={handleCreateLog} className="space-y-8">
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Left Column: Basic Details */}
-                  <div className="space-y-6">
-                    <div className="bg-slate-900/50 p-6 rounded-[24px] border border-slate-800/60 shadow-sm space-y-5">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Log Date</label>
-                          <input 
-                            type="date"
-                            required
-                            value={formData.lecture_date}
-                            onChange={(e) => setFormData({...formData, lecture_date: e.target.value})}
-                            className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Lecture Type</label>
-                          <select 
-                            value={formData.lecture_type}
-                            onChange={(e) => setFormData({...formData, lecture_type: e.target.value})}
-                            className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none"
-                          >
-                            <option value="THEORY">Theory</option>
-                            <option value="PRACTICAL">Practical</option>
-                            <option value="TUTORIAL">Tutorial</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Timetable Slot</label>
-                          <select 
-                            required
-                            value={formData.timetable_slot_id}
-                            onChange={(e) => setFormData({...formData, timetable_slot_id: e.target.value})}
-                            className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none"
-                          >
-                          <option value="">Select Slot...</option>
-                          {timetable.filter(s => s.slot_date === formData.lecture_date).map(slot => (
-                            <option key={slot.id} value={slot.id}>{slot.start_time} - {slot.subject_name || 'Class'}</option>
-                          ))}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Duration (Hrs)</label>
-                          <input 
-                            type="number"
-                            min="0.5"
-                            step="0.5"
-                            required
-                            value={formData.hours}
-                            onChange={(e) => setFormData({...formData, hours: parseFloat(e.target.value)})}
-                            className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Topic Covered</label>
-                        <textarea 
-                          required
-                          value={formData.topic_covered}
-                          onChange={(e) => setFormData({...formData, topic_covered: e.target.value})}
-                          placeholder="Describe the topics taught in this session..."
-                          className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-medium text-white h-[6.5rem] resize-none transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Attendance & Verification */}
-                  <div className="space-y-6">
-                    
-                    {/* Attendance Card */}
-                    <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900/50 border border-indigo-500/20 rounded-[24px] p-6 shadow-sm space-y-5">
-                      <div>
-                        <h4 className="text-sm font-bold text-indigo-300 tracking-tight flex items-center gap-2">
-                          <Users size={16} />
-                          Student Attendance
-                        </h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">Capture an image to automatically count students using AI, or enter manually.</p>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 items-end">
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1">AI Capture</label>
-                          <div className="relative">
-                            <input 
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={handleImageCapture}
-                              disabled={isCountingFaces}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                            />
-                            <div className={`w-full bg-indigo-950/50 border border-indigo-500/30 hover:bg-indigo-900/50 hover:border-indigo-400 rounded-xl px-4 py-3 flex items-center justify-center gap-2 transition-all ${isCountingFaces ? 'opacity-50' : ''}`}>
-                              {isCountingFaces ? <Loader2 size={16} className="text-indigo-400 animate-spin" /> : <Camera size={16} className="text-indigo-400" />}
-                              <span className="text-xs font-bold text-indigo-300 truncate">
-                                {isCountingFaces ? 'Counting...' : (aiCount !== null ? `AI Count: ${aiCount}` : 'Capture')}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Manual Count</label>
-                          <input 
-                            type="number"
-                            min="0"
-                            value={formData.attendance_count}
-                            onChange={(e) => setFormData({...formData, attendance_count: e.target.value ? parseInt(e.target.value) : ''})}
-                            placeholder="e.g. 45"
-                            className="w-full bg-black/50 border border-slate-800 hover:border-indigo-500/50 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-white transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Pin Location UI */}
-                    <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-[24px] p-6 shadow-sm flex flex-col gap-4">
-                      <div>
-                        <h4 className="text-sm font-bold text-emerald-400 tracking-tight flex items-center gap-2">
-                          <MapPin size={16} />
-                          Location Tagging
-                        </h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">Pin your location before saving.</p>
-                      </div>
-
-                      {formData.latitude !== null ? (
-                        <div className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex flex-col items-center justify-center gap-2 relative overflow-hidden">
-                          {/* Map-like background pattern */}
-                          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]"></div>
-                          <CheckCircle2 size={24} className="text-emerald-500 relative z-10" />
-                          <div className="text-center relative z-10">
-                            <p className="text-emerald-400 text-xs font-bold tracking-wider uppercase">Location Locked</p>
-                            <p className="text-emerald-500/60 text-[10px] font-mono mt-1">{formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <Button 
-                          type="button"
-                          onClick={handlePinLocation}
-                          disabled={isPinningLocation}
-                          className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 py-3.5 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-2"
-                        >
-                          {isPinningLocation ? (
-                            <>
-                              <Loader2 className="animate-spin" size={16} />
-                              Acquiring GPS...
-                            </>
-                          ) : (
-                            <>
-                              <MapPin size={16} />
-                              Pin Current Location
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Face Verification */}
-                    <div className="bg-slate-900/50 border border-slate-800/60 rounded-[24px] p-6 shadow-sm flex flex-col gap-4">
-                      <div>
-                        <h4 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                          <ScanFace size={16} />
-                          Face Verification
-                        </h4>
-                        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                          {faceLocked 
-                            ? "Verify identity to submit." 
-                            : "Lock profile on dashboard to verify."}
-                        </p>
-                      </div>
-
-                      {verifyResult?.face_matched ? (
-                        <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex flex-col items-center justify-center gap-2">
-                          <CheckCircle2 size={24} className="text-indigo-400" />
-                          <div className="text-center">
-                            <p className="text-indigo-400 text-xs font-bold tracking-wider uppercase">Identity Verified</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <Button 
-                          type="button"
-                          onClick={handleVerifySelfie}
-                          disabled={!faceLocked || isVerifying}
-                          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white border-none shadow-lg shadow-indigo-500/20 py-3.5 rounded-xl font-bold transition-all text-xs flex items-center justify-center gap-2"
-                        >
-                          {isVerifying ? (
-                            <>
-                              <Loader2 className="animate-spin" size={16} />
-                              Verifying...
-                            </>
-                          ) : (
-                            <>
-                              <ScanFace size={16} />
-                              Verify Face
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      
-                      {verifyResult && !verifyResult.face_matched && (
-                        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-bold px-4 py-3 rounded-xl flex items-center gap-2">
-                          <AlertCircle size={16} className="shrink-0" />
-                          Verification Failed — Face does not match profile.
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                </div>
-              </form>
-            </div>
-            
-            {/* Footer */}
-            <div className="p-6 border-t border-slate-800/60 bg-slate-900/40 flex justify-end gap-3 shrink-0">
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="px-8 py-6 rounded-xl text-xs font-bold border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
-                Cancel
-              </Button>
-              <Button form="log-form" type="submit" variant="primary" disabled={submitting || formData.latitude === 0 || !verifyResult?.face_matched} className="px-8 py-6 rounded-xl text-xs font-black bg-white hover:bg-slate-200 text-black disabled:opacity-50 transition-all">
-                {submitting ? <Loader2 className="animate-spin mx-auto text-black" size={16} /> : 'SAVE LOG ENTRY'}
-              </Button>
-            </div>
-
-          </div>
-        </div>
+        <LogTeachingHourModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLog}
+          timetable={timetable || []}
+          isSubmitting={isSubmittingLog}
+          faceLocked={faceLocked}
+        />
       )}
 
       {/* Weekly Timetable Modal */}

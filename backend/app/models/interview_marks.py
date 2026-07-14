@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, Boolean, Numeric, UniqueConstraint
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Boolean, Numeric, UniqueConstraint, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -20,6 +20,7 @@ class InterviewMarks(Base):
     overall_impression = Column(Numeric(5, 2), nullable=False)
     
     interview_total = Column(Numeric(5, 2), nullable=True) # Average of above 4
+    remarks = Column(Text, nullable=True)
     
     entered_by = Column(Integer, ForeignKey("users.id"))
     entered_at = Column(DateTime(timezone=True), server_default=func.now())

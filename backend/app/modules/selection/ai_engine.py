@@ -23,16 +23,22 @@ Candidates Data:
 {json.dumps(payload.get('candidates', []), indent=2)}
 
 Instructions for Ranking:
-1. Compare candidates holistically based on:
-   - Minimum Qualification (e.g. PhD is better than ME/MTech, which is better than BE/BTech).
-   - Marks % (Percentage marks in their highest degree).
-   - Experience in Years (More teaching experience is better).
-   - Interview Score (out of 100).
-   - Number of publications.
-2. Generate a 'final_score' out of 100 for each candidate based on your holistic evaluation.
-3. Assign a 'rank' (integer, 1 being the best) to each candidate based on the final_score. Do not use duplicate ranks.
+1. You MUST calculate a 'final_score' out of 100 for each candidate using EXACTLY this weighted mathematical formula:
+   - 35% Weight: Interview Score (Use their raw interview score out of 100).
+   - 20% Weight: Experience in Years (Score out of 100 where 10+ years is 100, e.g. 5 years = 50).
+   - 15% Weight: Marks % (Use the percentage marks in their highest degree).
+   - 15% Weight: Qualification Level (Score out of 100: e.g. PhD=100, M.Tech/Masters=80, B.Tech/Bachelors=60).
+   - 15% Weight: Resume Evaluation (Score out of 100 based on relevance of skills, certifications, and domain expertise found in resume_summary).
+2. Calculate the math carefully to compute the final_score out of 100.
+3. Assign a 'rank' (integer, 1 being the best) to each candidate based strictly on the highest final_score. Do not use duplicate ranks.
 4. Set 'result_status' to "SELECTED" if rank <= Vacancies, otherwise "WAITLISTED" (up to 3 places after vacancies), and "REJECTED" for the rest.
-5. Provide a short 'reason' explaining why this candidate received this rank compared to others.
+5. Provide a detailed, point-wise list of 'reasons' explaining exactly how the score was calculated for this candidate. You MUST provide at least 4 separate points:
+    - Point 1: Their Interview performance (35% weight).
+    - Point 2: Their Experience evaluation (20% weight).
+    - Point 3: Their Degree marks percentage (15% weight).
+    - Point 4: Their Qualification level evaluation (15% weight).
+    - Point 5: Analyze the candidate's resume_summary and highlight relevant skills, certifications, domain expertise, or projects and explain the score given (15% weight).
+    CRITICAL: Do NOT combine these into a single sentence. Output them as separate string elements in the "reasons" array.
 
 Return STRICT JSON adhering to this exact schema (no markdown, no backticks, just JSON):
 {{
@@ -44,7 +50,11 @@ Return STRICT JSON adhering to this exact schema (no markdown, no backticks, jus
       "rank": 1,
       "result_status": "SELECTED",
       "waitlist_position": null,
-      "reason": "Highest qualification with excellent interview score and 5 years of experience."
+      "reasons": [
+        "Candidate has the highest teaching experience of 8.5 years.",
+        "Holds a Ph.D. which is superior to other candidates' qualifications.",
+        "Secured an excellent interview score of 88/100."
+      ]
     }}
   ]
 }}

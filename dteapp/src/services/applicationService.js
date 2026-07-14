@@ -41,6 +41,11 @@ export const getAISummary = async (applicationId) => {
   return response.data;
 };
 
+export const analyzeApplicationAI = async (applicationId) => {
+  const response = await api.post(`/applications/${applicationId}/analyze-ai`);
+  return response.data;
+};
+
 export const getMyApplications = async (params) => {
   const response = await api.get('/applications/my', { params });
   return response.data;
@@ -61,6 +66,7 @@ export const applicationService = {
   getApplications,
   listDocuments,
   getAISummary,
+  analyzeApplicationAI,
 };
 
 export default applicationService;

@@ -104,7 +104,8 @@ class SelectionService:
                 ShortlistedCandidate, 
                 Candidate.full_name, 
                 Application.application_number,
-                InterviewMarks.interview_total
+                InterviewMarks.interview_total,
+                InterviewMarks.remarks
             )
             .join(Application, Application.id == ShortlistedCandidate.application_id)
             .join(Candidate, Candidate.id == ShortlistedCandidate.candidate_id)
@@ -117,7 +118,7 @@ class SelectionService:
         rows = (await db.execute(stmt)).all()
         
         results = []
-        for sc, name, app_num, int_total in rows:
+        for sc, name, app_num, int_total, remarks in rows:
             qual = (await db.execute(select(CandidateQualification).where(
                 and_(CandidateQualification.candidate_id == sc.candidate_id, CandidateQualification.is_highest == True)
             ))).scalars().first()
@@ -138,7 +139,8 @@ class SelectionService:
                 "qualification": qual.degree if qual else "N/A",
                 "experience_years": round(total_exp, 1),
                 "is_present": sc.is_present,
-                "interview_total": int_total
+                "interview_total": int_total,
+                "remarks": remarks
             })
         return results
 
@@ -202,6 +204,7 @@ class SelectionService:
             communication_skills=req.communication_skills,
             overall_impression=req.overall_impression,
             interview_total=total,
+            remarks=req.remarks,
             entered_by=current_user.id
         )
         db.add(marks)
@@ -228,6 +231,7 @@ class SelectionService:
         if req.teaching_aptitude is not None: marks.teaching_aptitude = req.teaching_aptitude
         if req.communication_skills is not None: marks.communication_skills = req.communication_skills
         if req.overall_impression is not None: marks.overall_impression = req.overall_impression
+        if req.remarks is not None: marks.remarks = req.remarks
         
         marks.interview_total = (marks.subject_knowledge + marks.teaching_aptitude + marks.communication_skills + marks.overall_impression) / 4
         
@@ -277,19 +281,23 @@ class SelectionService:
             for e in exp_rows:
                 end = e.to_date or datetime.now().date()
                 total_exp += (end - e.from_date).days / 365.25
-                
-            pub_count = (await db.execute(select(ApplicationDocument).where(and_(ApplicationDocument.application_id == sc.application_id, ApplicationDocument.document_type == "PUBLICATION_PROOF")))).scalars().all()
+
+            # Fetch resume text if available
+            resume_doc = (await db.execute(select(ApplicationDocument).where(and_(
+                ApplicationDocument.application_id == sc.application_id,
+                ApplicationDocument.document_type == "RESUME",
+                ApplicationDocument.extracted_text.isnot(None)
+            )))).scalars().first()
 
             ranking_inputs.append({
                 "application_id": str(sc.application_id),
                 "candidate_id": str(sc.candidate_id),
                 "full_name": cand.full_name,
-                "category": cand.category,
                 "highest_degree": qual.degree if qual else "N/A",
                 "marks_percentage": float(qual.percentage) if qual and qual.percentage else 0.0,
                 "teaching_experience_years": float(total_exp),
                 "interview_total": float(marks.interview_total),
-                "publication_count": len(pub_count)
+                "resume_summary": resume_doc.extracted_text if resume_doc else ""
             })
 
         if not ranking_inputs:
@@ -331,7 +339,7 @@ class SelectionService:
                 reservation_tiebreaker=0,
                 final_score=Decimal(str(rc["final_score"])),
                 rank=rc["rank"],
-                score_breakdown={"reason": rc.get("reason", "")}
+                score_breakdown={"reasons": rc.get("reasons", [])}
             ))
             db.add(SelectionResult(
                 advertisement_id=advertisement_id,
@@ -381,6 +389,12 @@ class SelectionService:
         scores = (await db.execute(scores_stmt)).scalars().all()
         score_map = {s.application_id: s for s in scores}
 
+        marks_stmt = select(InterviewMarks).where(
+            and_(InterviewMarks.advertisement_id == advertisement_id, InterviewMarks.application_id.in_(app_ids))
+        )
+        interview_marks = (await db.execute(marks_stmt)).scalars().all()
+        interview_marks_map = {m.application_id: m for m in interview_marks}
+
         quals_stmt = select(CandidateQualification).where(
             and_(CandidateQualification.candidate_id.in_(candidate_ids), CandidateQualification.is_highest.is_(True))
         )
@@ -398,6 +412,7 @@ class SelectionService:
         results = []
         for sr, name in rows:
             score = score_map.get(sr.application_id)
+            marks_record = interview_marks_map.get(sr.application_id)
             qual = qual_map.get(sr.candidate_id)
             candidate_exps = exp_map.get(sr.candidate_id, [])
             
@@ -415,7 +430,8 @@ class SelectionService:
                 "waitlist_position": sr.waitlist_position,
                 "score_breakdown": score.score_breakdown if score else {},
                 "qualification": qual.degree if qual else "N/A",
-                "experience_years": round(total_exp, 1)
+                "experience_years": round(total_exp, 1),
+                "remarks": marks_record.remarks if marks_record else None
             })
         return results
 

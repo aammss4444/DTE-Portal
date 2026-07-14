@@ -26,6 +26,16 @@ principal_or_admin = RoleChecker([RoleEnum.PRINCIPAL, RoleEnum.ADMIN])
 candidate_or_principal = RoleChecker([RoleEnum.CANDIDATE, RoleEnum.PRINCIPAL])
 
 
+@router.post("/applications/parse-resume", dependencies=[Depends(candidate_only)])
+async def parse_resume(
+    resume: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a resume PDF, extract text, parse with LLM, return structured data."""
+    return await controller.parse_resume(db, current_user, resume)
+
+
 @router.post("/applications", status_code=status.HTTP_201_CREATED, dependencies=[Depends(candidate_only)])
 async def create_application(
     req: ApplicationCreateRequest,

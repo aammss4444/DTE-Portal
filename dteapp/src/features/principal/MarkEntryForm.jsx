@@ -20,13 +20,19 @@ const MarkEntryForm = ({ candidate, advertisementId, institutionId, onCancel, on
     subject_knowledge: candidate.subject_knowledge || 0,
     teaching_aptitude: candidate.teaching_aptitude || 0,
     communication_skills: candidate.communication_skills || 0,
-    overall_impression: candidate.overall_impression || 0
+    overall_impression: candidate.overall_impression || 0,
+    remarks: candidate.remarks || ''
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     const val = Math.min(100, Math.max(0, parseFloat(value) || 0));
     setFormData(prev => ({ ...prev, [name]: val }));
+  };
+
+  const handleTextChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -139,6 +145,20 @@ const MarkEntryForm = ({ candidate, advertisementId, institutionId, onCancel, on
           </div>
         </div>
 
+        <div className="space-y-2 mt-6">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
+            <MessageSquare size={14} className="text-slate-500" />
+            Interview Remarks / Notes
+          </label>
+          <textarea 
+            name="remarks"
+            value={formData.remarks}
+            onChange={handleTextChange}
+            placeholder="Enter any qualitative notes from the interview..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[100px] resize-y"
+          />
+        </div>
+
         <div className="pt-6 border-t border-slate-50 flex justify-end gap-3">
           <Button variant="outline" type="button" onClick={onCancel} className="px-8 border-slate-200">
             Cancel
@@ -146,7 +166,7 @@ const MarkEntryForm = ({ candidate, advertisementId, institutionId, onCancel, on
           <Button 
             type="submit" 
             disabled={saving}
-            className="min-w-[160px] shadow-sm"
+            className="min-w-[160px] bg-black text-white border border-slate-800 hover:bg-slate-900 shadow-sm"
           >
             {saving ? <Loader2 size={18} className="animate-spin mr-2" /> : <Save size={18} className="mr-2" />}
             Save Scores
