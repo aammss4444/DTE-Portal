@@ -57,5 +57,5 @@ USER appuser
 # Expose port 3000
 EXPOSE 3000
 
-# Start serve in SPA mode on port 3000 (bind to 0.0.0.0 so it is reachable outside the container)
-CMD ["serve", "-s", "dist", "-l", "0.0.0.0:3000"]
+# Start serve in SPA mode on port 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]
