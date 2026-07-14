@@ -22,12 +22,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchDashboardData, setInstituteLocation, fetchFaceUpdateRequests, reviewFaceUpdateRequest } from './principalSlice';
 import { Loader2 } from 'lucide-react';
 import CandidateProfileModal from '../../components/CandidateProfileModal';
+import LocationPickerModal from '../../components/common/LocationPickerModal';
 
 const PrincipalDashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { dashboardData, loading, faceUpdateRequests } = useSelector((state) => state.principal);
   const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   React.useEffect(() => {
     dispatch(fetchDashboardData());
@@ -35,41 +38,30 @@ const PrincipalDashboard = () => {
   }, [dispatch]);
 
   const handleSetLocation = () => {
-    const promptForLocation = async () => {
-      const lat = window.prompt("Enter Latitude manually:", "18.5204");
-      if (!lat) return;
-      const lng = window.prompt("Enter Longitude manually:", "73.8567");
-      if (!lng) return;
-      
-      const result = await dispatch(setInstituteLocation({
-        latitude: parseFloat(lat),
-        longitude: parseFloat(lng)
-      }));
-      if (setInstituteLocation.fulfilled.match(result)) {
-        import('react-hot-toast').then(toast => toast.toast.success('Institute location updated successfully!'));
-      }
-    };
-
     if (!navigator.geolocation) {
-      promptForLocation();
+      setIsLocationModalOpen(true);
       return;
     }
     
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const result = await dispatch(setInstituteLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }));
-        if (setInstituteLocation.fulfilled.match(result)) {
-          import('react-hot-toast').then(toast => toast.toast.success('Institute location updated via GPS!'));
-        }
+      (position) => {
+        setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setIsLocationModalOpen(true);
       },
       (error) => {
-        import('react-hot-toast').then(toast => toast.toast.error('Unable to retrieve your location. Falling back to manual entry.'));
-        promptForLocation();
+        setIsLocationModalOpen(true);
       }
     );
+  };
+
+  const handleSaveLocation = async (lat, lng) => {
+    const result = await dispatch(setInstituteLocation({
+      latitude: lat,
+      longitude: lng
+    }));
+    if (setInstituteLocation.fulfilled.match(result)) {
+      import('react-hot-toast').then(toast => toast.toast.success('Institute location updated successfully!'));
+    }
   };
 
   const stats = dashboardData ? [
@@ -325,6 +317,12 @@ const PrincipalDashboard = () => {
           onClose={() => setSelectedCandidateId(null)} 
         />
       )}
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSave={handleSaveLocation}
+        initialLocation={currentLocation}
+      />
     </div>
   );
 };

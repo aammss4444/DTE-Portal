@@ -71,9 +71,9 @@ async def lifespan(app: FastAPI):
 
     async with AsyncSessionLocal() as db:
         seed_users = [
-            {"email": "admin@chb.com", "role": RoleEnum.ADMIN, "name": "System Admin"},
-            {"email": "ro@chb.com", "role": RoleEnum.RO, "name": "Regional Officer"},
-            {"email": "treasurer@chb.com", "role": RoleEnum.TREASURY, "name": "Treasurer"},
+            {"email": "s.admin@gmail.com", "role": RoleEnum.ADMIN, "name": "System Admin"},
+            {"email": "ro@example.com", "role": RoleEnum.RO, "name": "Regional Officer"},
+            {"email": "treasury@example.com", "role": RoleEnum.TREASURY, "name": "Treasurer"},
         ]
         default_password = get_password_hash("Admin@123")
         seeded = []
