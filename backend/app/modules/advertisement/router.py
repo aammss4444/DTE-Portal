@@ -31,6 +31,7 @@ admin_only = RoleChecker([RoleEnum.ADMIN])
 admin_or_principal = RoleChecker([RoleEnum.ADMIN, RoleEnum.PRINCIPAL])
 
 
+@router.get("", dependencies=[Depends(admin_or_principal)])
 @router.get("/", dependencies=[Depends(admin_or_principal)])
 async def list_advertisements(
     pagination: PaginationParams = Depends(),

@@ -83,5 +83,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || curl -f http://localhost:8000/ || exit 1
 
-# Start Uvicorn — exec form ensures OS signals (SIGTERM) reach the process
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Start Uvicorn with proxy headers enabled so X-Forwarded-Proto (HTTPS) is respected behind Traefik/Nginx
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers", "--forwarded-allow-ips=*"]
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
