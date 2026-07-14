@@ -311,7 +311,7 @@ const PrincipalBillingDashboard = () => {
     { 
       key: 'level', 
       label: 'Level',
-      render: (val) => <span className="font-bold text-[10px] uppercase tracking-tighter">{val.replace('_', ' ')}</span>
+      render: (val) => <span className="font-bold text-[10px] uppercase tracking-tighter">{val ? val.replace('_', ' ') : '-'}</span>
     },
     { 
       key: 'action', 

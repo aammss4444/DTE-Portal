@@ -196,30 +196,8 @@ const FacultyRequirementCalculator = () => {
             </div>
           </div>
 
-          {/* AI Confidence Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center gap-6">
-            <div className="flex items-center space-x-3">
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center",
-                result.confidence_score > 0.8 ? "bg-emerald-100 text-emerald-600" : result.confidence_score > 0.5 ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-600"
-              )}>
-                <BarChart3 size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900">AI Confidence Score</p>
-                <p className="text-xs text-slate-500 font-medium">{(result.confidence_score * 100).toFixed(0)}% — {result.confidence_score > 0.8 ? 'High confidence' : result.confidence_score > 0.5 ? 'Moderate — manual review recommended' : 'Low — requires Directorate review'}</p>
-              </div>
-            </div>
-            <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-1000",
-                  result.confidence_score > 0.8 ? "bg-emerald-500" : result.confidence_score > 0.5 ? "bg-amber-500" : "bg-red-500"
-                )}
-                style={{ width: `${result.confidence_score * 100}%` }}
-              ></div>
-            </div>
-          </div>
+
+
 
           {/* Course-by-Course Breakdown */}
           <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">

@@ -102,7 +102,7 @@ const attendanceService = {
    * Submit a log for verification
    */
   submitLog: async (logId) => {
-    const response = await api.post(`/attendance/logs/${logId}/submit`);
+    const response = await api.post(`/attendance/logs/${logId}/submit`, {});
     return response.data;
   },
 

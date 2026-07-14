@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchLogs, bulkSubmit, createLog, fetchTimetable } from './attendanceSlice';
+import { fetchLogs, bulkSubmit, createLog, fetchTimetable, submitLog } from './attendanceSlice';
 import { Button } from '../../components/common/UIComponents';
 import { Loader2, MoreVertical, ClipboardList, Calendar as CalendarIcon, Filter, Plus, X, Camera, MapPin, ScanFace, CheckCircle2 } from 'lucide-react';
 import attendanceService from '../../services/attendanceService';
@@ -200,9 +200,16 @@ const FacultyWorkLogs = () => {
                       </span>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white border-transparent">
-                        <MoreVertical size={16} className="text-slate-400" />
-                      </Button>
+                      {log.log_status === 'DRAFT' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => dispatch(submitLog(log.id))}
+                          className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                        >
+                          Submit Log
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -247,9 +254,10 @@ const FacultyWorkLogs = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateLog}
         timetable={timetable}
+        logs={logs}
         isSubmitting={isSubmittingLog}
-        faceLocked={faceLocked}
         user={user}
+        faceLocked={faceLocked}
       />
     </div>
   );

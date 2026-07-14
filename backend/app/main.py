@@ -62,6 +62,34 @@ async def lifespan(app: FastAPI):
         
         # Hotfix for Candidate registration
         await conn.execute(text("ALTER TABLE candidates ALTER COLUMN date_of_birth DROP NOT NULL"))
+        
+    # Seed initial users
+    from app.db.session import AsyncSessionLocal
+    from app.models.user import User, RoleEnum
+    from app.core.security import get_password_hash
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as db:
+        seed_users = [
+            {"email": "admin@chb.com", "role": RoleEnum.ADMIN, "name": "System Admin"},
+            {"email": "ro@chb.com", "role": RoleEnum.RO, "name": "Regional Officer"},
+            {"email": "treasurer@chb.com", "role": RoleEnum.TREASURY, "name": "Treasurer"},
+        ]
+        default_password = get_password_hash("Admin@123")
+        for user_data in seed_users:
+            exists = (await db.execute(select(User).where(User.email == user_data["email"]))).scalars().first()
+            if not exists:
+                new_user = User(
+                    email=user_data["email"],
+                    hashed_password=default_password,
+                    role=user_data["role"],
+                    full_name=user_data["name"],
+                    is_active=True,
+                    force_password_change=True,
+                )
+                db.add(new_user)
+        await db.commit()
+        
     yield
 
 

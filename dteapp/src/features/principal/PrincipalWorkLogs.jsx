@@ -174,6 +174,7 @@ const PrincipalWorkLogs = () => {
                   <th className="px-6 py-4">Topic / Subject</th>
                   <th className="px-6 py-4">Class</th>
                   <th className="px-6 py-4">Type</th>
+                  <th className="px-6 py-4 text-center">Attendance</th>
                   <th className="px-6 py-4 text-center">Distance</th>
                   <th className="px-6 py-4 text-center">Liveness</th>
                   <th className="px-6 py-4">Status</th>
@@ -185,7 +186,7 @@ const PrincipalWorkLogs = () => {
                   <React.Fragment key={log.id}>
                     <tr className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4 font-medium text-gray-900">
-                        {chbFacultyList.find(f => f.faculty_credential_id === log.faculty_credential_id)?.candidate_name || 'Unknown Faculty'}
+                        {log.faculty_name || 'Unknown Faculty'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
                         {new Date(log.lecture_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -197,11 +198,17 @@ const PrincipalWorkLogs = () => {
                         <div className="font-medium text-gray-800">{log.subject_name}</div>
                         <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">{log.topic_covered}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{log.class_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{log.timetable_slot?.class_name || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
                           {log.lecture_type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-bold text-gray-700" title="AI Attendance Count">AI: {log.ai_attendance_count ?? 'N/A'}</span>
+                          <span className="text-[10px] font-bold text-gray-700 mt-0.5" title="Manual Attendance Count">Manual: {log.manual_attendance_count ?? 'N/A'}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {(() => {

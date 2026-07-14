@@ -150,6 +150,9 @@ const PrincipalDashboard = () => {
               <span className="text-slate-500 text-[10px] font-bold">AY 2026-27</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight mb-2">Welcome Back, <span className="text-indigo-400">Principal</span></h1>
+            {dashboardData?.stats?.institute_name && (
+              <h2 className="text-xl font-medium text-slate-300 mb-4">{dashboardData.stats.institute_name}</h2>
+            )}
             <p className="text-slate-400 font-medium max-w-lg leading-relaxed">
               Your institute is currently at 85% staffing compliance. 3 vacancies are identified and pending your confirmation.
             </p>

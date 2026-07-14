@@ -199,7 +199,7 @@ const ApplicationManagement = () => {
                 <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border">Application</th>
                 <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border">Candidate</th>
                 <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border">Institution & Course</th>
-                <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border text-center">Docs Status</th>
+                <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border text-center">AI Decision</th>
                 <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border">Status</th>
                 <th className="p-4 text-xs font-bold text-secondary uppercase tracking-widest border-b border-border text-right">Actions</th>
               </tr>
@@ -238,21 +238,25 @@ const ApplicationManagement = () => {
                         <span className="text-xs text-secondary truncate">{app.course_name}</span>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-bold text-emerald-500">{app.valid_documents || 0}</span>
-                          <CheckCircle size={12} className="text-emerald-500" />
+                    <td className="p-4 text-center">
+                      {app.invalid_documents > 0 ? (
+                        <div className="inline-flex flex-col items-center justify-center px-3 py-1.5 rounded-lg bg-red-50 border border-red-100">
+                          <span className="text-[10px] font-bold text-red-700 uppercase tracking-widest">Reject</span>
+                          <span className="text-[8px] font-bold text-red-400 mt-0.5">{app.invalid_documents} Issues Found</span>
                         </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-bold text-red-500">{app.invalid_documents || 0}</span>
-                          <AlertCircle size={12} className="text-red-500" />
+                      ) : app.pending_documents > 0 ? (
+                        <div className="inline-flex flex-col items-center justify-center px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
+                          <span className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Review</span>
+                          <span className="text-[8px] font-bold text-amber-500 mt-0.5">{app.pending_documents} Pending Docs</span>
                         </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-bold text-slate-400">{app.pending_documents || 0}</span>
-                          <Clock size={12} className="text-slate-400" />
+                      ) : app.valid_documents > 0 ? (
+                        <div className="inline-flex flex-col items-center justify-center px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Approve</span>
+                          <span className="text-[8px] font-bold text-emerald-500 mt-0.5">All Clear</span>
                         </div>
-                      </div>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Docs</span>
+                      )}
                     </td>
                     <td className="p-4">
                       <span className={cn(
@@ -365,13 +369,7 @@ const ApplicationManagement = () => {
                   </h4>
                   {aiSummary && (
                     <div className="flex items-center space-x-2">
-                      <div className={cn(
-                        "px-3 py-1 rounded-full text-xs font-bold",
-                        aiSummary.confidence_score >= 80 ? "bg-emerald-100 text-emerald-600" :
-                        aiSummary.confidence_score >= 50 ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-600"
-                      )}>
-                        {aiSummary.confidence_score}% Confidence
-                      </div>
+
                       <button 
                         onClick={() => handleReanalyzeAI(selectedApp.application_id)}
                         disabled={aiLoading}
@@ -391,9 +389,7 @@ const ApplicationManagement = () => {
                   </div>
                 ) : aiSummary ? (
                   <div className="space-y-3">
-                    <p className="text-xs text-secondary leading-relaxed">
-                      {aiSummary.scrutiny_summary || "AI analysis complete. Check the issues list below for specific findings."}
-                    </p>
+
                     {aiSummary.mismatches && aiSummary.mismatches.length > 0 && (
                       <div className="space-y-2 mt-4">
                         <h5 className="text-[11px] font-bold text-foreground uppercase tracking-wider">Profile Anomalies</h5>

@@ -14,7 +14,8 @@ import {
   Calendar,
   AlertCircle,
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Button, Input } from '../../components/common/UIComponents';
 import { appointmentService } from '../../services/appointmentService';
@@ -412,11 +413,18 @@ const PrincipalAppointmentManagement = () => {
 
               <Button 
                 variant="accent" 
-                className="w-full h-16 rounded-2xl text-lg font-bold shadow-xl shadow-indigo-200"
+                className="w-full h-16 rounded-2xl text-lg font-bold shadow-xl shadow-slate-900/20 bg-slate-950 text-white hover:bg-slate-900 flex items-center justify-center gap-2 transition-all"
                 type="submit"
                 disabled={genLoading}
               >
-                {genLoading ? 'Processing...' : 'Generate with AI'}
+                {genLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating with AI...
+                  </>
+                ) : (
+                  'Generate with AI'
+                )}
               </Button>
             </form>
           </div>

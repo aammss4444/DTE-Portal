@@ -5,7 +5,7 @@ import FaceScanner from '../../components/common/FaceScanner';
 import attendanceService from '../../services/attendanceService';
 import { toast } from 'react-hot-toast';
 
-const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitting, faceLocked, user }) => {
+const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, logs = [], isSubmitting, faceLocked, user }) => {
   const [formData, setFormData] = useState({
     log_date: new Date().toISOString().split('T')[0],
     lecture_type: 'THEORY',
@@ -14,6 +14,7 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
     hours: 1,
     attendance_count: '',
     subject_name: '',
+    slot_number: '',
     is_extra: false,
     latitude: null,
     longitude: null
@@ -24,6 +25,7 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
   const [isCountingFaces, setIsCountingFaces] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
+  const [faceDataUrl, setFaceDataUrl] = useState(null);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [verifyMode, setVerifyMode] = useState('selfie');
   const uploadInputRef = useRef(null);
@@ -52,10 +54,15 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
       return;
     }
 
+    const selectedSlot = !formData.is_extra && formData.timetable_slot_id 
+      ? timetable.find(s => s.id === formData.timetable_slot_id)
+      : null;
+
     const payload = {
       faculty_credential_id: user?.id,
-      timetable_slot_id: formData.is_extra ? null : formData.timetable_slot_id,
-      log_date: formData.log_date,
+      lecture_date: formData.log_date,
+      slot_number: formData.is_extra ? parseInt(formData.slot_number) : (selectedSlot?.slot_number || 1),
+      subject_name: formData.is_extra ? formData.subject_name : (selectedSlot?.subject_name || ''),
       lecture_type: formData.lecture_type,
       topic_covered: formData.topic_covered,
       hours: formData.hours,
@@ -64,7 +71,7 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
       latitude: formData.latitude,
       longitude: formData.longitude,
       is_extra: formData.is_extra,
-      subject_name: formData.is_extra ? formData.subject_name : null
+      face_image_data_url: faceDataUrl
     };
 
     onSubmit(payload);
@@ -119,6 +126,7 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
       setVerifyResult(res.data);
       if (res.data.face_matched) {
         toast.success('Face verified! Identity confirmed.');
+        setFaceDataUrl(faceDataUrl);
       } else {
         toast.error('Face did NOT match your locked profile.');
       }
@@ -225,6 +233,13 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
                         <option value="">Select Slot...</option>
                         {timetable.filter(s => {
                           if (!formData.log_date) return true;
+                          
+                          const isLogged = logs.some(log => 
+                            log.lecture_date === formData.log_date && 
+                            log.timetable_slot_id === s.id
+                          );
+                          if (isLogged) return false;
+
                           const logDayOfWeek = new Date(formData.log_date).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
                           return s.day_of_week === logDayOfWeek || s.slot_date === formData.log_date || s.slot_date === '1900-01-01' || !s.slot_date;
                         }).map(slot => (
@@ -236,17 +251,33 @@ const LogTeachingHourModal = ({ isOpen, onClose, onSubmit, timetable, isSubmitti
                       </div>
                     )}
                     {formData.is_extra && (
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Subject Name</label>
-                        <input 
-                          type="text"
-                          required={formData.is_extra}
-                          value={formData.subject_name}
-                          onChange={(e) => setFormData({...formData, subject_name: e.target.value})}
-                          placeholder="Subject"
-                          className="w-full bg-white border border-slate-200 hover:border-indigo-300 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        />
-                      </div>
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Slot Number</label>
+                          <select 
+                            required={formData.is_extra}
+                            value={formData.slot_number}
+                            onChange={(e) => setFormData({...formData, slot_number: e.target.value})}
+                            className="w-full bg-white border border-slate-200 hover:border-indigo-300 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none"
+                          >
+                            <option value="">Select Slot</option>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+                              <option key={num} value={num}>Slot {num}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Subject Name</label>
+                          <input 
+                            type="text"
+                            required={formData.is_extra}
+                            value={formData.subject_name}
+                            onChange={(e) => setFormData({...formData, subject_name: e.target.value})}
+                            placeholder="Subject"
+                            className="w-full bg-white border border-slate-200 hover:border-indigo-300 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 transition-colors outline-none focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                        </div>
+                      </>
                     )}
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Duration (Hrs)</label>

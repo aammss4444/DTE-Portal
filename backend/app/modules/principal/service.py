@@ -96,7 +96,8 @@ class PrincipalService:
                 "application_trend": "New applications live",
                 "interview_trend": "In progress",
                 "institute_latitude": institution.latitude if institution else None,
-                "institute_longitude": institution.longitude if institution else None
+                "institute_longitude": institution.longitude if institution else None,
+                "institute_name": institution.name if institution else None
             },
             "recent_applications": recent_applications
         }

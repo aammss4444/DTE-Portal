@@ -236,48 +236,82 @@ class AttendanceService:
 
         appointment = await self._get_accepted_appointment(db, credential)
 
+        existing_slots = (
+            await db.execute(
+                select(TimetableSlot).where(
+                    TimetableSlot.faculty_credential_id == req.faculty_credential_id,
+                    TimetableSlot.academic_year == req.academic_year,
+                )
+            )
+        ).scalars().all()
+        existing_slot_dict = {str(s.id): s for s in existing_slots}
+
+        incoming_ids = set()
+        for slot in req.slots:
+            if slot.id:
+                incoming_ids.add(str(slot.id))
+
+        # Hard delete slots that were not included in the request FIRST to free up UniqueConstraints
+        for existing in existing_slots:
+            if str(existing.id) not in incoming_ids:
+                await db.delete(existing)
+        
+        await db.flush()
+
         created_slots: list[TimetableSlot] = []
+
         for slot in req.slots:
             if slot.start_time >= slot.end_time:
                 self._raise_error(400, "INVALID_DATE_RANGE", "start_time must be before end_time")
             
-            # Check for overlapping slots on the same date
-            overlap = (
-                await db.execute(
-                    select(TimetableSlot).where(
-                        TimetableSlot.faculty_credential_id == req.faculty_credential_id,
-                        TimetableSlot.slot_date == slot.slot_date,
-                        TimetableSlot.academic_year == req.academic_year,
-                        TimetableSlot.is_active.is_(True),
-                        TimetableSlot.start_time < slot.end_time,
-                        TimetableSlot.end_time > slot.start_time,
-                    )
-                )
-            ).scalars().first()
+            # Check for overlapping active slots on the same date
+            overlap_query = select(TimetableSlot).where(
+                TimetableSlot.faculty_credential_id == req.faculty_credential_id,
+                TimetableSlot.slot_date == slot.slot_date,
+                TimetableSlot.academic_year == req.academic_year,
+                TimetableSlot.start_time < slot.end_time,
+                TimetableSlot.end_time > slot.start_time,
+            )
+            if slot.id:
+                overlap_query = overlap_query.where(TimetableSlot.id != slot.id)
+
+            overlap = (await db.execute(overlap_query)).scalars().first()
             if overlap:
+                print(f"Overlap detected with slot id: {overlap.id}")
                 self._raise_error(409, "INTEGRITY_ERROR", f"Overlapping timetable slot exists for {slot.slot_date}")
 
-            # Calculate day_of_week from slot_date
             day_of_week = slot.slot_date.strftime("%A").upper()
 
-            created = TimetableSlot(
-                institution_id=credential.institution_id,
-                course_id=appointment.course_id,
-                faculty_credential_id=req.faculty_credential_id,
-                academic_year=req.academic_year,
-                slot_date=slot.slot_date,
-                day_of_week=day_of_week,  # Store for reference
-                slot_number=slot.slot_number,
-                start_time=slot.start_time,
-                end_time=slot.end_time,
-                subject_name=slot.subject_name,
-                lecture_type=slot.lecture_type,
-                class_name=slot.class_name,
-                is_active=True,
-                created_by=current_user.id,
-            )
-            db.add(created)
-            created_slots.append(created)
+            if slot.id and str(slot.id) in existing_slot_dict:
+                existing = existing_slot_dict[str(slot.id)]
+                existing.slot_date = slot.slot_date
+                existing.day_of_week = day_of_week
+                existing.slot_number = slot.slot_number
+                existing.start_time = slot.start_time
+                existing.end_time = slot.end_time
+                existing.subject_name = slot.subject_name
+                existing.lecture_type = slot.lecture_type
+                existing.class_name = slot.class_name
+                existing.is_active = True
+            else:
+                created = TimetableSlot(
+                    institution_id=credential.institution_id,
+                    course_id=appointment.course_id,
+                    faculty_credential_id=req.faculty_credential_id,
+                    academic_year=req.academic_year,
+                    slot_date=slot.slot_date,
+                    day_of_week=day_of_week,
+                    slot_number=slot.slot_number,
+                    start_time=slot.start_time,
+                    end_time=slot.end_time,
+                    subject_name=slot.subject_name,
+                    lecture_type=slot.lecture_type,
+                    class_name=slot.class_name,
+                    is_active=True,
+                    created_by=current_user.id,
+                )
+                db.add(created)
+                created_slots.append(created)
 
         await db.flush()
         for slot in created_slots:
@@ -590,6 +624,8 @@ class AttendanceService:
             class_name=req.class_name,
             topic_covered=req.topic_covered,
             attendance_count=req.attendance_count,
+            ai_attendance_count=req.ai_attendance_count,
+            manual_attendance_count=req.manual_attendance_count,
             latitude=req.latitude,
             longitude=req.longitude,
             is_extra=req.is_extra,
@@ -636,12 +672,14 @@ class AttendanceService:
         old_values = {
             "topic_covered": lecture_log.topic_covered,
             "attendance_count": lecture_log.attendance_count,
+            "ai_attendance_count": lecture_log.ai_attendance_count,
+            "manual_attendance_count": lecture_log.manual_attendance_count,
             "subject_name": lecture_log.subject_name,
             "lecture_type": lecture_log.lecture_type,
             "class_name": lecture_log.class_name,
         }
-        for field in ["topic_covered", "attendance_count", "subject_name", "lecture_type", "class_name"]:
-            value = getattr(req, field)
+        for field in ["topic_covered", "attendance_count", "ai_attendance_count", "manual_attendance_count", "subject_name", "lecture_type", "class_name"]:
+            value = getattr(req, field, None)
             if value is not None:
                 setattr(lecture_log, field, value)
         lecture_log.rejection_reason = None
@@ -656,6 +694,8 @@ class AttendanceService:
             new_value={
                 "topic_covered": lecture_log.topic_covered,
                 "attendance_count": lecture_log.attendance_count,
+                "ai_attendance_count": lecture_log.ai_attendance_count,
+                "manual_attendance_count": lecture_log.manual_attendance_count,
                 "subject_name": lecture_log.subject_name,
                 "lecture_type": lecture_log.lecture_type,
                 "class_name": lecture_log.class_name,
@@ -984,6 +1024,23 @@ class AttendanceService:
         anomalies = (
             await db.execute(select(AttendanceAnomaly).where(AttendanceAnomaly.lecture_log_id.in_(log_ids)))
         ).scalars().all() if log_ids else []
+        
+        # Fetch faculty names
+        from app.models.faculty_credentials import FacultyCredentials
+        from app.models.candidate import Candidate
+        
+        faculty_cred_ids = list(set([log.faculty_credential_id for log in logs]))
+        credentials = (
+            await db.execute(select(FacultyCredentials).where(FacultyCredentials.id.in_(faculty_cred_ids)))
+        ).scalars().all() if faculty_cred_ids else []
+        
+        candidate_ids = [c.candidate_id for c in credentials]
+        candidates = (
+            await db.execute(select(Candidate).where(Candidate.id.in_(candidate_ids)))
+        ).scalars().all() if candidate_ids else []
+        
+        candidate_map = {c.id: c.full_name for c in candidates}
+        cred_to_name_map = {cred.id: candidate_map.get(cred.candidate_id, "Unknown Faculty") for cred in credentials}
         anomaly_map: dict[UUID, list[AttendanceAnomaly]] = defaultdict(list)
         for anomaly in anomalies:
             anomaly_map[anomaly.lecture_log_id].append(anomaly)
@@ -1005,6 +1062,7 @@ class AttendanceService:
             item = LectureLogResponse(
                 **{
                     **log.__dict__,
+                    "faculty_name": cred_to_name_map.get(log.faculty_credential_id),
                     "timetable_slot": TimetableSlotResponse.model_validate(slot_map[log.timetable_slot_id], from_attributes=True).model_dump()
                     if log.timetable_slot_id and log.timetable_slot_id in slot_map
                     else None,

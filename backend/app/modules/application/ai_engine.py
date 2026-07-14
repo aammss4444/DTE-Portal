@@ -49,7 +49,7 @@ class DocumentAIEngine:
             abs_file_path = str(backend_root / file_path) if file_path else ""
             
             logger.info(f"AI Scrutiny: Extracting text from {doc_type} ({abs_file_path})...")
-            text = await extract_text(abs_file_path)
+            text = await extract_text(abs_file_path, document_type=doc_type)
             text = _mask_sensitive(text)
             
             snippet = text[:50].replace('\n', ' ') + "..." if text else "EMPTY"
@@ -78,51 +78,115 @@ class DocumentAIEngine:
                 logger.warning(f"Failed to read image {abs_file_path} for vision: {str(e)}")
 
         prompt = f"""
-Candidate Profile:
+You are performing document scrutiny for a government recruitment application.
+
+═══════════════════════════════════════════
+CANDIDATE PROFILE (from application form):
+═══════════════════════════════════════════
 Name: {profile.get('name')}
 Qualifications: {profile.get('qualifications')}
 Experience: {profile.get('experience')}
 
-Documents:
+═══════════════════════════════════════════
+SUBMITTED DOCUMENTS (OCR-extracted text):
+═══════════════════════════════════════════
 {json.dumps(extracted_docs, ensure_ascii=False)}
 
-Tasks:
-1. Extract key info from each document (degree, year, university, etc).
-2. Compare extracted information with the candidate's profile.
-3. Detect any missing required documents.
-4. Visually compare the candidate's photo (if provided) with the photo on the Aadhar card to verify they match.
-5. Perform an EXTREMELY STRICT, point-by-point verification of candidate profile details:
-   - Check if Candidate Name matches EXACTLY across the profile and ALL documents (Aadhar, Degree, etc.). Flag ANY spelling or initial differences.
-   - Check if Address matches. Flag any missing or mismatched addresses.
-   - Check if Passing Degree precisely matches the education details on certificates.
-   - Check Passing Year for mismatches or missing years on certificates.
-   - Verify Date of Birth (DOB) across documents. Flag if it is missing or mismatched anywhere.
-6. For each document in `document_analysis`, list any document-specific anomalies as highly descriptive sentences in the `issues` array. MUST BE STRINGS, NOT OBJECTS.
-7. For the overall candidate profile verification, list any mismatches (like name mismatch, photo mismatch, DOB mismatch) as highly descriptive full sentences in the `mismatches` array. MUST BE AN ARRAY OF STRINGS, NOT OBJECTS. Example: "The candidate name 'Jane Doe' on the profile does not exactly match 'Jane T. Doe' on the Aadhar Card."
-8. Generate a comprehensive and detailed scrutiny summary based on visual and textual verification.
-9. Classify application status as COMPLETE, INCOMPLETE, or REQUIRES_REVIEW.
+═══════════════════════════════════════════
+DOCUMENT-TYPE-AWARE ANALYSIS INSTRUCTIONS:
+═══════════════════════════════════════════
 
+CRITICAL: Each document type contains SPECIFIC fields. Only extract and verify fields that NATURALLY EXIST on that document type.
 
-Return JSON:
+■ PHOTO:
+  - Extract: Nothing textual. This is a photograph.
+  - Verify: Visually compare with the photo embedded on the Aadhar card (if available). Flag ONLY if faces clearly do not match.
+  - Do NOT flag: Anything about text, degree, year, etc.
+
+■ SIGNATURE:
+  - Extract: Nothing. This is a signature specimen.
+  - Verify: Check if the image appears to contain a valid signature.
+  - Do NOT flag: Anything about name matching, education, etc.
+
+■ AADHAR / AADHAR CARD:
+  - Extract: Name, Date of Birth, Gender, Address (if readable).
+  - Verify against profile: Name match, DOB match (if profile has DOB).
+  - Verify visually: Compare photo on Aadhar with the candidate's uploaded PHOTO.
+  - Do NOT extract or flag: Degree, university, passing year, marks — Aadhar cards NEVER contain these.
+
+■ DEGREE_CERTIFICATE:
+  - Extract: Candidate Name, Degree name, University/Board, Year of Passing or Month/Year, sometimes DOB.
+  - Verify against profile: Degree matches qualifications, University matches, Passing Year matches.
+  - Verify against Aadhar: Name consistency.
+  - Flag only if: A field IS present on the certificate but CONTRADICTS the profile, OR a critical field (degree, year) is genuinely unreadable/absent from the certificate.
+
+■ MARKSHEET:
+  - Extract: Candidate Name, Exam name, University/Board, Year/Month of passing, Marks/Percentage/Grade, Seat/Roll number.
+  - Verify against profile: Degree and year consistency.
+  - Verify against Degree Certificate: Year and University consistency.
+  - Read carefully: Marksheets often show dates in headers, footers, exam session labels (e.g., "May 2019", "Examination held in June 2020"). Look thoroughly before claiming a date is missing.
+  - Flag only if: Information is genuinely contradictory or a critical field is truly absent after thorough reading.
+
+■ RESUME / CV:
+  - Extract: Name, Qualifications (degree, university, year), Work Experience.
+  - Verify against profile: All claimed qualifications and experience.
+  - Verify against certificates: Cross-check degrees and years mentioned in resume vs. actual certificates.
+  - Note: Resume is self-declared. Discrepancies between resume and official certificates are significant.
+
+═══════════════════════════════════════════
+ANTI-HALLUCINATION CHECKLIST (follow strictly):
+═══════════════════════════════════════════
+Before reporting ANY issue, ask yourself:
+  1. Did I ACTUALLY see/read this information (or its absence) in the document? If NO → do not report.
+  2. Is this field EXPECTED to exist on this document type? If NO → do not report its absence.
+  3. Am I comparing fields that exist on BOTH documents? If NO → do not report a mismatch.
+  4. Did I read the ENTIRE document text (headers, footers, stamps, seals) before claiming something is missing? If NO → re-read.
+  5. NEVER state that an Aadhar card lacks educational details. It is NOT SUPPOSED to have them. This is a critical failure.
+
+═══════════════════════════════════════════
+MISSING DOCUMENTS RULES:
+═══════════════════════════════════════════
+Only report a document/field as "missing" if:
+  - A required field (e.g., passing year) is genuinely NOT FOUND anywhere in the document text after thorough reading.
+  - The candidate's profile claims a qualification but NO corresponding certificate was submitted.
+Do NOT report: Fields missing from documents that never contain those fields (e.g., "passing year missing from Aadhar").
+
+═══════════════════════════════════════════
+OUTPUT FORMAT (strict JSON):
+═══════════════════════════════════════════
+Return ONLY this JSON structure:
 {{
   "document_analysis": [
     {{
-      "document_type": "...",
+      "document_type": "AADHAR",
       "extracted_fields": {{
-        "degree": "...",
-        "year": "...",
-        "university": "..."
+        "name": "value or null",
+        "dob": "value or null",
+        "address": "value or null"
       }},
-      "issues": ["point-wise issue 1", "point-wise issue 2"]
+      "issues": ["Only genuine issues as descriptive strings"]
+    }},
+    {{
+      "document_type": "DEGREE_CERTIFICATE",
+      "extracted_fields": {{
+        "name": "value or null",
+        "degree": "value or null",
+        "university": "value or null",
+        "year_of_passing": "value or null"
+      }},
+      "issues": ["Only genuine issues as descriptive strings"]
     }}
   ],
-  "missing_documents": ["document name 1"],
-  "mismatches": ["point-wise profile anomaly 1", "point-wise profile anomaly 2"],
-  "scrutiny_summary": "...",
+  "missing_documents": ["Only genuinely missing items as strings"],
+  "mismatches": ["Only real cross-document contradictions as descriptive strings"],
+  "scrutiny_summary": "Brief factual summary of verification findings",
   "status": "COMPLETE | INCOMPLETE | REQUIRES_REVIEW",
   "confidence_score": 0.0
 }}
+
+REMEMBER: Every issue you report must be FACTUALLY GROUNDED in the actual document content. Zero tolerance for assumptions.
 """
+
         try:
             if not openai_ready():
                 raise RuntimeError("OPENAI_UNAVAILABLE")

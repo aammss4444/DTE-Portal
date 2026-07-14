@@ -413,9 +413,6 @@ const LecturerDashboard = () => {
                                 <CheckCircle2 size={18} />
                               </button>
                             )}
-                            <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-white border-transparent">
-                              <MoreVertical size={16} className="text-slate-400" />
-                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -515,6 +512,7 @@ const LecturerDashboard = () => {
           onSubmit={handleCreateLog}
           timetable={timetable || []}
           isSubmitting={isSubmittingLog}
+          user={user}
           faceLocked={faceLocked}
         />
       )}

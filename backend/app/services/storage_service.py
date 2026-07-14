@@ -5,7 +5,7 @@ from uuid import uuid4
 from fastapi import UploadFile
 
 
-UPLOAD_ROOT = Path("uploads")
+UPLOAD_ROOT = Path(__file__).parent.parent.parent / "uploads"
 
 
 async def save_file(file: UploadFile, destination_path: str) -> str:

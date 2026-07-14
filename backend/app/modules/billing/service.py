@@ -285,12 +285,18 @@ class BillingService:
         if not lecture_type_enums:
             return {}
         
+        alt_year = academic_year
+        if len(academic_year) == 7 and academic_year[4] == '-':
+            alt_year = f"{academic_year[:5]}20{academic_year[5:]}"
+        elif len(academic_year) == 9 and academic_year[4] == '-':
+            alt_year = f"{academic_year[:5]}{academic_year[7:]}"
+        
         rows = (
             await db.execute(
                 select(RateMaster)
                 .where(
                     RateMaster.institution_id == institution_id,
-                    RateMaster.academic_year == academic_year,
+                    RateMaster.academic_year.in_([academic_year, alt_year]),
                     RateMaster.designation == designation_enum,
                     RateMaster.lecture_type.in_(lecture_type_enums),
                     RateMaster.is_active.is_(True),

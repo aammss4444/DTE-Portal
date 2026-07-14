@@ -128,6 +128,7 @@ class LivenessService:
         face_spatial = face_spatial - np.mean(face_spatial)
         
         # We also keep smaller color histograms to ensure skin tone matches
+        hsv = cv2.cvtColor(face_resized, cv2.COLOR_BGR2HSV)
         hist_h = cv2.calcHist([hsv], [0], None, [16], [0, 180]).flatten()
         hist_s = cv2.calcHist([hsv], [1], None, [16], [0, 256]).flatten()
 

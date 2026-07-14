@@ -6,7 +6,7 @@ import { cn } from '../../utils/cn';
 
 const FacultyTimetable = () => {
   const dispatch = useDispatch();
-  const { timetableByDay, logs, loading } = useSelector((state) => state.attendance);
+  const { timetable, timetableByDay, logs, loading } = useSelector((state) => state.attendance);
   const { user } = useSelector((state) => state.auth);
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -76,11 +76,12 @@ const FacultyTimetable = () => {
         </div>
       </div>
 
-      {loading && Object.keys(timetableByDay || {}).length === 0 ? (
-        <div className="flex items-center justify-center py-32 bg-white rounded-3xl border border-slate-200">
-          <Loader2 className="animate-spin text-indigo-500" size={48} />
+      {loading && (!timetable || timetable.length === 0) ? (
+        <div className="flex items-center justify-center py-20 text-slate-400">
+          <Loader2 className="animate-spin mr-2" size={24} />
+          <span>Loading calendar...</span>
         </div>
-      ) : Object.keys(timetableByDay || {}).length === 0 ? (
+      ) : (!timetable || timetable.length === 0) ? (
         <div className="text-center py-32 bg-white rounded-3xl border border-slate-200 shadow-sm">
           <BookOpen size={64} className="mx-auto text-slate-300 mb-6" />
           <p className="text-slate-500 font-bold text-xl">No timetable assigned yet.</p>
@@ -110,8 +111,7 @@ const FacultyTimetable = () => {
               const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
               
               const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), date);
-              const dayOfWeek = dayNames[cellDate.getDay()];
-              const slots = timetableByDay[dayOfWeek] || [];
+              const slots = (timetable || []).filter(s => s.slot_date === dateStr);
               
               const today = isToday(date);
               const past = isPast(date);

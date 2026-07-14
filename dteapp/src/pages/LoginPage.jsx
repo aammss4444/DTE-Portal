@@ -72,7 +72,7 @@ const LoginPage = () => {
               onClick={() => setShowTestLogins(!showTestLogins)}
               className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center transition-colors bg-slate-50 px-3 py-1.5 rounded-full"
             >
-              {showTestLogins ? 'Hide Test Accounts' : 'Show Test Accounts'}
+              {showTestLogins ? 'Hide Accounts' : 'Show Accounts'}
               <motion.div animate={{ rotate: showTestLogins ? 180 : 0 }} className="ml-1">▼</motion.div>
             </button>
             <AnimatePresence>

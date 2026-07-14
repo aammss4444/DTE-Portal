@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TimetableSlotEntryRequest(BaseModel):
+    id: Optional[UUID] = None
     slot_date: date  # Specific date for this slot
     slot_number: int = Field(..., ge=1, le=8)
     start_time: time
@@ -151,6 +152,7 @@ class AnomalyFlagResponse(BaseModel):
 class LectureLogResponse(BaseModel):
     id: UUID
     faculty_credential_id: UUID
+    faculty_name: Optional[str] = None
     timetable_slot_id: Optional[UUID] = None
     institution_id: int
     course_id: int
@@ -170,6 +172,8 @@ class LectureLogResponse(BaseModel):
     longitude: Optional[float] = None
     is_extra: bool
     is_substitute: bool
+    liveness_score: Optional[float] = None
+    face_verified: bool = False
     substitute_for_faculty_id: Optional[UUID] = None
     log_status: str
     rejection_reason: Optional[str] = None

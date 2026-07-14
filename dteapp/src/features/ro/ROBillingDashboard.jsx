@@ -293,14 +293,7 @@ const ROBillingDashboard = () => {
                       <CheckCircle size={14} className="mr-1" /> Review
                     </Button>
                   )}
-                  <Button 
-                    variant="ghost" 
-                    className="p-2 h-auto text-slate-400 hover:bg-slate-50 rounded-xl"
-                    title="View Details"
-                    onClick={() => handleViewDetails(row.id)}
-                  >
-                    <ChevronRight size={18} />
-                  </Button>
+
                 </div>
               )}
             />
