@@ -224,7 +224,7 @@ async def call_llm_count_faces(base64_image: str) -> int | None:
     try:
         resp = await asyncio.wait_for(
             client.chat.completions.create(
-                model="gpt-4o",
+                model=settings.OPENAI_MODEL or "gpt-4o",
                 temperature=0.0,
                 messages=[
                     {

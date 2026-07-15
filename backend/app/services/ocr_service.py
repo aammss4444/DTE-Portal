@@ -87,45 +87,6 @@ async def _ocr_space_extract(file_path: str) -> str:
 
 async def extract_text(file_path: str, document_type: str | None = None) -> str:
     """
-    Extracts text from an image or PDF using ocr.space API.
-    Falls back to simulation if API key is not set and simulation is allowed.
+    OCR is totally removed as requested.
     """
-    if not os.path.exists(file_path):
-        logger.error(f"File not found for OCR: {file_path}")
-        return ""
-
-    # Try ocr.space API first
-    if settings.OCR_SPACE_API_KEY:
-        try:
-            text = await _ocr_space_extract(file_path)
-            if text:
-                logger.info(f"ocr.space extracted {len(text)} chars from {os.path.basename(file_path)}")
-                return text
-            else:
-                logger.warning(f"ocr.space returned empty text for {os.path.basename(file_path)}")
-        except Exception as e:
-            logger.error(f"ocr.space OCR failed for {file_path}: {str(e)}")
-
-    # Fallback to simulation if allowed
-    if not settings.ALLOW_OCR_SIMULATION:
-        logger.error("OCR extraction failed and simulation is disabled for file: %s", file_path)
-        return ""
-
-    # Simulation logic for development only
-    doc_type = (document_type or "").upper()
-    file_name = os.path.basename(file_path).lower()
-
-    if doc_type in ("DEGREE_CERTIFICATE", "DEGREE") or "degree" in file_name or "certificate" in file_name:
-        return "CERTIFICATE OF DEGREE: MASTER OF TECHNOLOGY (M.TECH) IN COMPUTER SCIENCE. SAVITRIBAI PHULE PUNE UNIVERSITY (SPPU). YEAR OF PASSING: 2022. GRADE: A+. CANDIDATE NAME: New Candidate. DATE OF BIRTH: 15-06-1998."
-    elif doc_type == "MARKSHEET" or "marksheet" in file_name:
-        return "TRANSCRIPT / MARKSHEET. SAVITRIBAI PHULE PUNE UNIVERSITY (SPPU). EXAMINATION: M.TECH SEMESTER IV - MAY 2022. CANDIDATE NAME: New Candidate. SEAT NO: 12345. TOTAL MARKS: 850/1000. PERCENTAGE: 85%. RESULT: FIRST CLASS WITH DISTINCTION."
-    elif doc_type == "AADHAR" or "aadhaar" in file_name or "aadhar" in file_name or "id" in file_name:
-        return "GOVERNMENT OF INDIA. AADHAAR CARD. NAME: New Candidate. DATE OF BIRTH: 15/06/1998. GENDER: Male. ADDRESS: 123, Shivaji Nagar, Pune, Maharashtra - 411005. AADHAAR NUMBER: XXXX-XXXX-XXXX."
-    elif doc_type == "RESUME" or "resume" in file_name or "cv" in file_name:
-        return "RESUME. NAME: New Candidate. EDUCATION: M.Tech in Computer Science, SPPU, 2022. B.Tech in Computer Science, SPPU, 2020. EXPERIENCE: Lecturer, ABC Polytechnic, 2022-Present. SKILLS: Python, Java, Data Structures."
-    elif doc_type == "PHOTO" or "photo" in file_name or "pic" in file_name:
-        return "[PHOTOGRAPH - No text content. This is a candidate passport-size photo.]"
-    elif doc_type == "SIGNATURE" or "sign" in file_name:
-        return "[SIGNATURE SPECIMEN - No text content. This is the candidate's signature.]"
-
-    return "Sample extracted text from document."
+    return ""

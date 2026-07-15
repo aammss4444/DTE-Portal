@@ -223,13 +223,13 @@ class ApplicationService:
         created_docs = []
         for file in files:
             if file.content_type not in ALLOWED_MIME_TYPES:
-                continue # Skip invalid types for now or raise error
+                self._raise_error(400, "INVALID_FILE_TYPE", f"File type {file.content_type} is not allowed. Allowed types: {', '.join(ALLOWED_MIME_TYPES)}")
 
             payload = await file.read()
             await file.seek(0)
             size_kb = len(payload) // 1024
             if size_kb > MAX_FILE_SIZE_KB:
-                continue
+                self._raise_error(400, "FILE_TOO_LARGE", f"File size ({size_kb}KB) exceeds maximum allowed size ({MAX_FILE_SIZE_KB}KB)")
 
             # Use provided type or default to OTHER
             final_type = document_type or "OTHER"
